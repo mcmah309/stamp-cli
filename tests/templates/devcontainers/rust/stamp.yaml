@@ -1,5 +1,7 @@
 variables:
   name: 
     description: Name of the container
+    default: rust
   image: 
     description: Image to use
+    default: rust
