@@ -13,7 +13,7 @@ Usage: stamp <COMMAND>
 
 Commands:
   use       Render a template in the registry to a destination directory
-  from      Render a template from as source directory to a destination directory
+  from      Render a template from a source directory to a destination directory
   register  Register templates to the registry
   remove    Remove registered templates
   list      List registered templates
