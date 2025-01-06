@@ -172,6 +172,9 @@ fn render_template(template_path: PathBuf, destination_path: PathBuf) -> anyhow:
         let output_path = destination_path.join(relative_path);
 
         if path.is_file() {
+            if path.file_name().is_some_and(|name| name == "stamp.yaml") {
+                continue;
+            }
             if path.extension().map_or(false, |ext| ext == "tera") {
                 // Render .tera template
                 let template_name = relative_path.to_string_lossy();
