@@ -1,11 +1,10 @@
 use anyhow::{bail, Context};
 use clap::{Parser, Subcommand};
-use dialoguer::Input;
 use directories::ProjectDirs;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
-    fs,
+    fs, io::{self, Write},
     path::{Path, PathBuf},
     process::exit,
 };
@@ -136,23 +135,29 @@ fn render_template(template_path: PathBuf, destination_path: PathBuf) -> anyhow:
     let mut context = tera::Context::new();
 
     // user prompt
+    io::stdout().flush().unwrap();
     for (key, variable) in &config.variables {
         let postfix = variable
             .description
             .as_ref()
-            .map(|e| format!(": {e}"))
+            .map(|e| format!(" - {e}"))
             .unwrap_or("".to_string());
         let prompt_message = format!("{key}{postfix}");
-        let user_value: String = if let Some(ref default) = variable.default {
-            Input::<String>::new()
-                .with_prompt(format!("🎤 {}", prompt_message))
-                .default(default.clone())
-                .interact_text()?
+        let mut user_value: String = String::new();
+        println!("🎤 {prompt_message}");
+        if let Some(default) = &variable.default {
+            print!("[{default}]:")
         } else {
-            Input::new()
-                .with_prompt(format!("🎤 {}", prompt_message))
-                .interact_text()?
-        };
+            print!("[]:")
+        }
+        io::stdout().flush().unwrap();
+        io::stdin().read_line(&mut user_value).unwrap();
+        user_value = user_value.trim().to_owned();
+        if user_value.is_empty() {
+            if let Some(default) = &variable.default {
+                user_value = default.clone();
+            }
+        }
         context.insert(key, &user_value);
     }
 
@@ -207,7 +212,7 @@ fn register_templates(path: PathBuf, all: bool, overwrite: bool) -> anyhow::Resu
                 })?;
             let info = RegistryInfo {
                 description: config.description,
-                path: path.to_string_lossy().to_string(),
+                path: path.canonicalize()?.to_string_lossy().to_string(),
             };
             let name = match config.name {
                 Some(value) => value,
