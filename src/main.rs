@@ -1,10 +1,15 @@
-use anyhow::bail;
+use anyhow::{bail, Context};
 use clap::{Parser, Subcommand};
 use dialoguer::Input;
 use directories::ProjectDirs;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, fs, path::PathBuf, process::exit};
-use tera::{Context, Tera};
+use std::{
+    collections::HashMap,
+    fs,
+    path::{Path, PathBuf},
+    process::exit,
+};
+use tera::Tera;
 
 #[derive(Parser)]
 #[command(name = "yard", author = "Henry McMahon", version = "0.1", about =  "A cli tool for templates", long_about = None)]
@@ -31,6 +36,9 @@ enum Commands {
     },
     /// Register templates
     Register {
+        /// Recursively register all templates in the directory
+        #[clap(long, short, default_value = "false")]
+        all: bool,
         /// Path to register templates from
         path: PathBuf,
     },
@@ -40,7 +48,7 @@ enum Commands {
 
 #[derive(Debug, Deserialize)]
 struct TemplateConfig {
-    name: String,
+    name: Option<String>,
     description: Option<String>,
     variables: HashMap<String, VariableConfig>,
 }
@@ -71,7 +79,7 @@ fn main() -> anyhow::Result<()> {
             source,
             destination,
         } => render_template(source, destination),
-        Commands::Register { path } => register_templates(path),
+        Commands::Register { path, all } => register_templates(path, all),
         Commands::List => list_templates(),
     };
 
@@ -99,10 +107,16 @@ fn render_registered_template(
 fn render_template(template_path: PathBuf, destination_path: PathBuf) -> anyhow::Result<()> {
     // Load the template configuration
     let config_path = template_path.join("stamp.yaml");
-    let config_contents = fs::read_to_string(&config_path)?;
-    let config: TemplateConfig = serde_yaml::from_str(&config_contents)?;
+    let config_contents = fs::read_to_string(&config_path)
+        .with_context(|| format!("could not read `{}`", config_path.to_string_lossy()))?;
+    let config: TemplateConfig = serde_yaml::from_str(&config_contents).with_context(|| {
+        format!(
+            "Template config from `{}` is not valid",
+            config_path.to_string_lossy()
+        )
+    })?;
 
-    let mut context = Context::new();
+    let mut context = tera::Context::new();
 
     // user prompt
     for (key, variable) in &config.variables {
@@ -160,27 +174,59 @@ fn render_template(template_path: PathBuf, destination_path: PathBuf) -> anyhow:
     Ok(())
 }
 
-fn register_templates(path: PathBuf) -> anyhow::Result<()> {
+fn register_templates(path: PathBuf, all: bool) -> anyhow::Result<()> {
     let mut registry = load_registry()?;
+    let mut add_to_registry_fn = |path: &Path| -> anyhow::Result<()> {
+        let config_path = path.join("stamp.yaml");
+        if config_path.exists() {
+            let config_contents = fs::read_to_string(&config_path)?;
+            let config: TemplateConfig =
+                serde_yaml::from_str(&config_contents).with_context(|| {
+                    format!(
+                        "Template config from `{}` is not valid",
+                        config_path.to_string_lossy()
+                    )
+                })?;
+            let info = RegistryInfo {
+                description: config.description,
+                path: path.to_string_lossy().to_string(),
+            };
+            let name = match config.name {
+                Some(value) => value,
+                None => path
+                    .components()
+                    .last()
+                    .unwrap()
+                    .as_os_str()
+                    .to_str()
+                    .unwrap()
+                    .to_owned(),
+            };
+            registry.templates.insert(name, info);
+        }
+        Ok(())
+    };
 
-    for entry in fs::read_dir(path)? {
-        let entry = entry?;
-        let path = entry.path();
-
-        if path.is_dir() {
-            let config_path = path.join("stamp.yaml");
-            if config_path.exists() {
-                let config_contents = fs::read_to_string(&config_path)?;
-                let config: TemplateConfig = serde_yaml::from_str(&config_contents)?;
-                let info = RegistryInfo {
-                    description: config.description,
-                    path: path.to_string_lossy().to_string(),
-                };
-                registry.templates.insert(config.name.clone(), info);
+    if !path.exists() {
+        bail!("Register path does not exist");
+    }
+    if path.is_file() {
+        bail!("Register path must be a directory");
+    }
+    if all {
+        for entry in walkdir::WalkDir::new(path) {
+            let entry = entry?;
+            let path = entry.path();
+            if path.is_dir() {
+                add_to_registry_fn(path)?;
             }
         }
+    } else {
+        add_to_registry_fn(&path)?;
     }
-
+    if registry.templates.is_empty() {
+        bail!("No templates found in directory");
+    }
     save_registry(&registry)?;
     println!("Templates registered successfully.");
     Ok(())
@@ -189,12 +235,16 @@ fn register_templates(path: PathBuf) -> anyhow::Result<()> {
 fn list_templates() -> anyhow::Result<()> {
     let registry = load_registry()?;
 
+    if registry.templates.is_empty() {
+        println!("No templates registered");
+    }
+
     for (name, info) in registry.templates {
         let RegistryInfo { description, path } = info;
         if let Some(description) = description {
-            println!("{}:\n\tdescription:{}\n\tpath:{}", name, description, path);
+            println!("{}:\n\tdescription: {}\n\tpath: {}", name, description, path);
         } else {
-            println!("{}:\n\tpath:{}", name, path);
+            println!("{}:\n\tpath: {}", name, path);
         }
     }
 
@@ -204,7 +254,12 @@ fn list_templates() -> anyhow::Result<()> {
 fn load_registry() -> anyhow::Result<Registry> {
     let registry_path = get_registry_path()?;
     if let Ok(contents) = fs::read_to_string(&registry_path) {
-        let registry: Registry = serde_json::from_str(&contents)?;
+        let registry: Registry = serde_json::from_str(&contents).with_context(|| {
+            format!(
+                "Registry from `{}` is not valid",
+                registry_path.to_string_lossy()
+            )
+        })?;
         Ok(registry)
     } else {
         Ok(Registry {
