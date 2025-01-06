@@ -33,7 +33,7 @@ enum Commands {
         /// Path to the destination folder
         destination: PathBuf,
     },
-    /// Register templates
+    /// Register templates to the registry
     Register {
         /// Recursively register all templates in the directory
         #[clap(long, short, default_value = "false")]
@@ -44,7 +44,7 @@ enum Commands {
         /// Path to register templates from
         path: PathBuf,
     },
-    /// Remove a registered template
+    /// Remove registered templates
     Remove {
         /// The template names in the registry to remove
         #[clap(long, short)]
