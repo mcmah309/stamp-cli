@@ -1,0 +1,33 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+        "name": {
+            "type": "string",
+            "description": "Name of the template"
+        },
+        "description": {
+            "type": "string",
+            "description": "Description of the template"
+        },
+        "variables": {
+            "type": "object",
+            "description": "Variables to be applied to the template",
+            "additionalProperties": {
+                "type": "object",
+                "properties": {
+                    "description": {
+                        "type": "string",
+                        "description": "A description of the variable."
+                    },
+                    "default": {
+                        "type": "string",
+                        "description": "The default value for the variable."
+                    }
+                },
+                "additionalProperties": false
+            }
+        }
+    },
+    "additionalProperties": false
+}
