@@ -1,0 +1,19 @@
+[package]
+name = "{{crate_name}}"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "{{crate_name}}_lib"
+path = "src/lib.rs"
+
+[[bin]]
+name = "{{crate_name}}"
+path = "src/bin/main.rs"
+
+[dependencies]
+axum = {version = "0.8.0", features = ["ws"] }
+tracing = "0.1"
+tracing-subscriber = "0.3"
+tokio = { version = "1", features = ["full"] }
+futures = "0.3"

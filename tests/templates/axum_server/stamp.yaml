@@ -1,0 +1,3 @@
+variables:
+  crate_name: 
+    description: Name of crate

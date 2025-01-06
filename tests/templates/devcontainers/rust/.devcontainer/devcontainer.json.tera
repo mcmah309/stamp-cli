@@ -1,0 +1,33 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+{
+	"name": "{{name}}",
+	"image": "{{image}}",
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"rust-lang.rust-analyzer",
+				"fill-labs.dependi",
+				"vadimcn.vscode-lldb",
+				"chunsen.bracket-select",
+				"dzhavat.bracket-pair-toggler",
+				"tamasfe.even-better-toml",
+				"oderwat.indent-rainbow",
+				"fabiospampinato.vscode-git-history",
+				"streetsidesoftware.code-spell-checker",
+			]
+		}
+	},
+	"mounts": [
+		// ssh
+		"source=/home/henry/.ssh/,target=/root/.ssh,type=bind",
+		// usb. When plugging in a previously plugged in android device, you may need to run `adb kill-server` to recognize it again.
+		"source=/dev/bus/usb,target=/dev/bus/usb,type=bind",
+	],
+	"runArgs": [
+		"--privileged",
+		"--net=host",
+//		"--env-file",
+//		".activate/.env"
+	],
+	"remoteUser": "root",
+}

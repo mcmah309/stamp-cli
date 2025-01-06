@@ -1,0 +1,19 @@
+use axum::{routing::any, Router};
+use {{crate_name}}_lib::{
+    external::ws::client_websocket_handler,
+    init::{config::Config, logging::setup_logging},
+};
+
+#[tokio::main]
+async fn main() {
+    setup_logging();
+    tracing::info!("Started.");
+    let config = Config::from_env();
+
+    let app = Router::new().route("/ws", any(websocket_handler));
+
+    let bind_address = &config.host_address;
+    tracing::info!("Starting server on '{}' ...", bind_address);
+    let listener = tokio::net::TcpListener::bind(bind_address).await.unwrap();
+    axum::serve(listener, app).await.unwrap();
+}

@@ -1,0 +1,5 @@
+variables:
+  name: 
+    description: Name of the container
+  image: 
+    description: Image to use
