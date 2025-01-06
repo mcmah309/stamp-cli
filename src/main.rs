@@ -26,7 +26,7 @@ enum Commands {
         /// Path to the destination folder
         destination: PathBuf,
     },
-    /// Render a template from as source directory to a destination directory
+    /// Render a template from a source directory to a destination directory
     From {
         /// Path to the source folder
         source: PathBuf,
