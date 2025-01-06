@@ -45,6 +45,15 @@ enum Commands {
         /// Path to register templates from
         path: PathBuf,
     },
+    /// Remove a registered template
+    Remove {
+        /// The template names in the registry to remove
+        #[clap(long, short)]
+        name: Vec<String>,
+        /// Removes all registered templates
+        #[clap(long, short)]
+        all: bool,
+    },
     /// List registered templates
     List,
 }
@@ -87,6 +96,7 @@ fn main() -> anyhow::Result<()> {
             all,
             overwrite,
         } => register_templates(path, all, overwrite),
+        Commands::Remove { name, all } => remove_template(name, all),
         Commands::List => list_templates(),
     };
 
@@ -215,9 +225,8 @@ fn register_templates(path: PathBuf, all: bool, overwrite: bool) -> anyhow::Resu
                     println!("Overwriting template `{}`", name);
                     registry.templates.insert(name, info);
                     added += 1;
-                }
-                else {
-                    println!("Template `{}` already registered. Not adding.", name);
+                } else {
+                    println!("Template `{}` already registered - not adding", name);
                 }
             } else {
                 println!("Adding template `{}`", name);
@@ -247,10 +256,11 @@ fn register_templates(path: PathBuf, all: bool, overwrite: bool) -> anyhow::Resu
     }
     if added == 0 {
         assert!(!registry.templates.is_empty());
-        bail!("No templates found in directory");
+        println!("No templates added");
+        return Ok(());
     }
     save_registry(&registry)?;
-    println!("Templates registered successfully.");
+    println!("Templates registered successfully");
     Ok(())
 }
 
@@ -307,5 +317,24 @@ fn save_registry(registry: &Registry) -> anyhow::Result<()> {
     let registry_path = get_registry_path()?;
     let contents = serde_json::to_string_pretty(registry)?;
     fs::write(registry_path, contents)?;
+    Ok(())
+}
+
+fn remove_template(names: Vec<String>, all: bool) -> anyhow::Result<()> {
+    let mut registry = load_registry()?;
+    if all {
+        registry.templates.clear();
+        save_registry(&registry)?;
+        println!("All templates removed successfully");
+        return Ok(());
+    }
+    for name in names {
+        if registry.templates.remove(&name).is_some() {
+            save_registry(&registry)?;
+            println!("Template `{}` removed successfully", name);
+        } else {
+            bail!("Template `{}` not found in registry", name)
+        }
+    }
     Ok(())
 }
