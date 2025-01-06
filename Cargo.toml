@@ -1,0 +1,12 @@
+[package]
+name = "stamp-cli"
+version = "0.1.0"
+edition = "2021"
+description = "A cli tool for templates"
+license = "Apache-2.0"
+
+[[bin]]
+name = "stamp"
+path = "src/main.rs"
+
+[dependencies]
