@@ -10,3 +10,12 @@ name = "stamp"
 path = "src/main.rs"
 
 [dependencies]
+clap = { version = "4.0", features = ["derive"] }
+tera = "1.17"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+dialoguer = "0.11"
+directories = "5.0"
+anyhow = "1.0"
+walkdir = "2.5"
