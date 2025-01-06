@@ -14,18 +14,25 @@
             "type": "object",
             "description": "Variables to be applied to the template",
             "additionalProperties": {
-                "type": "object",
-                "properties": {
-                    "description": {
-                        "type": "string",
-                        "description": "A description of the variable."
+                "anyOf": [
+                    {
+                        "type": "object",
+                        "properties": {
+                            "description": {
+                                "type": "string",
+                                "description": "A description of the variable."
+                            },
+                            "default": {
+                                "type": "string",
+                                "description": "The default value for the variable."
+                            }
+                        },
+                        "additionalProperties": false
                     },
-                    "default": {
-                        "type": "string",
-                        "description": "The default value for the variable."
+                    {
+                        "type": "null"
                     }
-                },
-                "additionalProperties": false
+                ]
             }
         }
     },
