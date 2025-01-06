@@ -39,6 +39,9 @@ enum Commands {
         /// Recursively register all templates in the directory
         #[clap(long, short, default_value = "false")]
         all: bool,
+        /// Overwrite existing templates if names conflict with existing
+        #[clap(long, short, default_value = "false")]
+        overwrite: bool,
         /// Path to register templates from
         path: PathBuf,
     },
@@ -79,7 +82,11 @@ fn main() -> anyhow::Result<()> {
             source,
             destination,
         } => render_template(source, destination),
-        Commands::Register { path, all } => register_templates(path, all),
+        Commands::Register {
+            path,
+            all,
+            overwrite,
+        } => register_templates(path, all, overwrite),
         Commands::List => list_templates(),
     };
 
@@ -174,8 +181,9 @@ fn render_template(template_path: PathBuf, destination_path: PathBuf) -> anyhow:
     Ok(())
 }
 
-fn register_templates(path: PathBuf, all: bool) -> anyhow::Result<()> {
+fn register_templates(path: PathBuf, all: bool, overwrite: bool) -> anyhow::Result<()> {
     let mut registry = load_registry()?;
+    let mut added = 0;
     let mut add_to_registry_fn = |path: &Path| -> anyhow::Result<()> {
         let config_path = path.join("stamp.yaml");
         if config_path.exists() {
@@ -202,7 +210,20 @@ fn register_templates(path: PathBuf, all: bool) -> anyhow::Result<()> {
                     .unwrap()
                     .to_owned(),
             };
-            registry.templates.insert(name, info);
+            if registry.templates.contains_key(&name) {
+                if overwrite {
+                    println!("Overwriting template `{}`", name);
+                    registry.templates.insert(name, info);
+                    added += 1;
+                }
+                else {
+                    println!("Template `{}` already registered. Not adding.", name);
+                }
+            } else {
+                println!("Adding template `{}`", name);
+                registry.templates.insert(name, info);
+                added += 1;
+            }
         }
         Ok(())
     };
@@ -224,7 +245,8 @@ fn register_templates(path: PathBuf, all: bool) -> anyhow::Result<()> {
     } else {
         add_to_registry_fn(&path)?;
     }
-    if registry.templates.is_empty() {
+    if added == 0 {
+        assert!(!registry.templates.is_empty());
         bail!("No templates found in directory");
     }
     save_registry(&registry)?;
@@ -242,7 +264,10 @@ fn list_templates() -> anyhow::Result<()> {
     for (name, info) in registry.templates {
         let RegistryInfo { description, path } = info;
         if let Some(description) = description {
-            println!("{}:\n\tdescription: {}\n\tpath: {}", name, description, path);
+            println!(
+                "{}:\n\tdescription: {}\n\tpath: {}",
+                name, description, path
+            );
         } else {
             println!("{}:\n\tpath: {}", name, path);
         }
