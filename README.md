@@ -50,38 +50,37 @@ Adding template `rust`
 Adding template `flutter_rust`
 Templates registered successfully
 root@c-nixos:/workspaces/stamp-cli (master)$ stamp list
-rust:
-        path: /workspaces/stamp-cli/tests/templates/devcontainers/rust
 axum_server:
         description: An axum server project
         path: /workspaces/stamp-cli/tests/templates/axum_server
 flutter_rust:
         path: /workspaces/stamp-cli/tests/templates/devcontainers/flutter_rust
+rust:
+        path: /workspaces/stamp-cli/tests/templates/devcontainers/rust
 root@c-nixos:/workspaces/stamp-cli (master)$ stamp use axum_server example_crate
 🎤 crate_name - Name of crate
-[]:example_crate
-Template rendered successfully to "."
+[]:stamp_poc
+Template rendered successfully to "example_crate"
 root@c-nixos:/workspaces/stamp-cli (master)$ l example_crate
-total 20K
-drwxr-xr-x 3 root root 4.0K Jan  6 09:11 .
-drwxr-xr-x 8 root root 4.0K Jan  6 09:10 ..
-drwxr-xr-x 5 root root 4.0K Jan  6 09:11 src
--rw-r--r-- 1 root root    7 Jan  6 09:11 .gitignore
--rw-r--r-- 1 root root  347 Jan  6 09:11 Cargo.toml
-drwxr-xr-x 5 root root 4.0K Jan  6 09:11 src
-drwxr-xr-x 2 root root 4.0K Jan  6 09:11 example_crate
-root@c-nixos:/workspaces/stamp-cli (master)$ cat example_crate/Cargo.toml 
+total 24K
+drwxr-xr-x 4 root root 4.0K Jan 10 22:45 .
+drwxr-xr-x 8 root root 4.0K Jan 10 22:45 ..
+-rw-r--r-- 1 root root    7 Jan 10 22:45 .gitignore
+-rw-r--r-- 1 root root  335 Jan 10 22:45 Cargo.toml
+drwxr-xr-x 5 root root 4.0K Jan 10 22:45 src
+drwxr-xr-x 2 root root 4.0K Jan 10 22:45 stamp_poc
+root@c-nixos:/workspaces/stamp-cli (master)$ cat example_crate/Cargo.toml
 [package]
-name = "example_crate"
+name = "stamp_poc"
 version = "0.1.0"
 edition = "2021"
 
 [lib]
-name = "example_crate_lib"
+name = "stamp_poc_lib"
 path = "src/lib.rs"
 
 [[bin]]
-name = "example_crate"
+name = "stamp_poc"
 path = "src/bin/main.rs"
 
 [dependencies]

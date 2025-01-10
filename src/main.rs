@@ -339,7 +339,6 @@ fn get_registry_path() -> anyhow::Result<PathBuf> {
 fn save_registry(registry: &Registry) -> anyhow::Result<()> {
     let registry_path = get_registry_path()?;
     let contents = serde_json::to_string_pretty(registry)?;
-    println!("reg: {contents}");
     fs::write(registry_path, contents)?;
     Ok(())
 }
