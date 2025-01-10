@@ -92,3 +92,8 @@ tokio = { version = "1", features = ["full"] }
 
 See [tests/templates/](https://github.com/mcmah309/stamp-cli/tree/master/tests/templates) for more.
 
+## Install
+Cargo
+```bash
+cargo install stamp-cli
+```
