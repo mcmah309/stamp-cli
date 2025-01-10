@@ -4,7 +4,8 @@ use directories::ProjectDirs;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
-    fs, io::{self, Write},
+    fs,
+    io::{self, Write},
     path::{Path, PathBuf},
     process::exit,
 };
@@ -169,7 +170,21 @@ fn render_template(template_path: PathBuf, destination_path: PathBuf) -> anyhow:
         let entry = entry?;
         let path = entry.path();
         let relative_path = path.strip_prefix(&template_path)?;
-        let output_path = destination_path.join(relative_path);
+        let output_path_original = destination_path.join(relative_path);
+        let output_path: Result<PathBuf, String> = output_path_original
+            .components()
+            .map(|e| {
+                let str_part = e.as_os_str().to_string_lossy();
+                let processed_part = tera.render_str(&str_part, &context);
+                processed_part.map_err(|_| str_part.to_string())
+            })
+            .try_fold(PathBuf::new(), |acc, part| Ok(acc.join(&part?)));
+        let output_path = output_path.map_err(|component_failed| {
+            let output_path = output_path_original.to_string_lossy();
+            anyhow::anyhow!(
+                "Failed to render path component `{component_failed}` of `{output_path}`"
+            )
+        })?;
 
         if path.is_file() {
             if path.file_name().is_some_and(|name| name == "stamp.yaml") {
