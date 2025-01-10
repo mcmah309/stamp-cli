@@ -42,6 +42,7 @@ variables:
   template_variable2:
 ```
 ## Example
+From [tests/templates/axum_server](https://github.com/mcmah309/stamp-cli/tree/master/tests/templates/axum_server)
 ```console
 root@c-nixos:/workspaces/stamp-cli (master)$ stamp register tests/templates/ -a
 Adding template `axum_server`
@@ -52,6 +53,7 @@ root@c-nixos:/workspaces/stamp-cli (master)$ stamp list
 rust:
         path: /workspaces/stamp-cli/tests/templates/devcontainers/rust
 axum_server:
+        description: An axum server project
         path: /workspaces/stamp-cli/tests/templates/axum_server
 flutter_rust:
         path: /workspaces/stamp-cli/tests/templates/devcontainers/flutter_rust
@@ -64,9 +66,11 @@ root@c-nixos:/workspaces/stamp-cli/example_crate (master)$ l
 total 20K
 drwxr-xr-x 3 root root 4.0K Jan  6 09:11 .
 drwxr-xr-x 8 root root 4.0K Jan  6 09:10 ..
+drwxr-xr-x 5 root root 4.0K Jan  6 09:11 src
 -rw-r--r-- 1 root root    7 Jan  6 09:11 .gitignore
 -rw-r--r-- 1 root root  347 Jan  6 09:11 Cargo.toml
 drwxr-xr-x 5 root root 4.0K Jan  6 09:11 src
+drwxr-xr-x 2 root root 4.0K Jan  6 09:11 example_crate
 root@c-nixos:/workspaces/stamp-cli/example_crate (master)$ cat Cargo.toml 
 [package]
 name = "example_crate"
