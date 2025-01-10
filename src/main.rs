@@ -168,9 +168,10 @@ fn render_template(template_path: PathBuf, destination_path: PathBuf) -> anyhow:
 
     for entry in walkdir::WalkDir::new(&template_path) {
         let entry = entry?;
-        let path = entry.path();
-        let relative_path = path.strip_prefix(&template_path)?;
-        let output_path_original = destination_path.join(relative_path);
+        let path_in_template = entry.path();
+        let relative_path_in_template = path_in_template.strip_prefix(&template_path)?;
+        let output_path_original = destination_path.join(relative_path_in_template);
+        // Treat each path component as a template
         let output_path: Result<PathBuf, String> = output_path_original
             .components()
             .map(|e| {
@@ -186,15 +187,14 @@ fn render_template(template_path: PathBuf, destination_path: PathBuf) -> anyhow:
             )
         })?;
 
-        if path.is_file() {
-            if path.file_name().is_some_and(|name| name == "stamp.yaml") {
+        if path_in_template.is_file() {
+            if path_in_template.file_name().is_some_and(|name| name == "stamp.yaml") {
                 continue;
             }
-            if path.extension().map_or(false, |ext| ext == "tera") {
+            if path_in_template.extension().map_or(false, |ext| ext == "tera") {
                 // Render .tera template
-                let template_name = relative_path.to_string_lossy();
-                tera.add_template_file(&path, Some(&template_name))?;
-                let rendered = tera.render(&template_name, &context)?;
+                let tera_template = fs::read_to_string(path_in_template)?;
+                let rendered = tera.render_str(&tera_template, &context)?;
 
                 if let Some(parent) = output_path.parent() {
                     fs::create_dir_all(parent)?;
@@ -205,7 +205,7 @@ fn render_template(template_path: PathBuf, destination_path: PathBuf) -> anyhow:
                 if let Some(parent) = output_path.parent() {
                     fs::create_dir_all(parent)?;
                 }
-                fs::copy(&path, &output_path)?;
+                fs::copy(&path_in_template, &output_path)?;
             }
         }
     }
@@ -339,6 +339,7 @@ fn get_registry_path() -> anyhow::Result<PathBuf> {
 fn save_registry(registry: &Registry) -> anyhow::Result<()> {
     let registry_path = get_registry_path()?;
     let contents = serde_json::to_string_pretty(registry)?;
+    println!("reg: {contents}");
     fs::write(registry_path, contents)?;
     Ok(())
 }

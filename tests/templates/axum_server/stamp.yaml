@@ -1,5 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/mcmah309/stamp-cli/master/src/schemas/stamp-schema.json
 
+description: "An axum server project"
 variables:
   crate_name: 
     description: Name of crate
