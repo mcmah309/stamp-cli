@@ -30,7 +30,7 @@ suffix will be treated as a tera template when applying a template through the `
 sub commands.
 
 ## stamp.yaml
-Add a `stamp.yaml` file to a directory to make the directory a valid template
+Add a `stamp.yaml` file to a directory to make the directory a valid template. All fields are optional. Example config:
 ```yaml
 # yaml-language-server: $schema=https://raw.githubusercontent.com/mcmah309/stamp-cli/master/src/schemas/stamp-schema.json
 name: Name of template
@@ -41,7 +41,7 @@ variables:
     default: Default value of template variable
   template_variable2:
 ```
-## Example
+## Usage Example
 From [tests/templates/axum_server](https://github.com/mcmah309/stamp-cli/tree/master/tests/templates/axum_server)
 ```console
 root@c-nixos:/workspaces/stamp-cli (master)$ stamp register tests/templates/ -a
@@ -57,12 +57,11 @@ axum_server:
         path: /workspaces/stamp-cli/tests/templates/axum_server
 flutter_rust:
         path: /workspaces/stamp-cli/tests/templates/devcontainers/flutter_rust
-root@c-nixos:/workspaces/stamp-cli (master)$ mkdir example_crate && cd example_crate/
-root@c-nixos:/workspaces/stamp-cli/example_crate (master)$ stamp use axum_server .
+root@c-nixos:/workspaces/stamp-cli (master)$ stamp use axum_server example_crate
 🎤 crate_name - Name of crate
 []:example_crate
 Template rendered successfully to "."
-root@c-nixos:/workspaces/stamp-cli/example_crate (master)$ l
+root@c-nixos:/workspaces/stamp-cli (master)$ l example_crate
 total 20K
 drwxr-xr-x 3 root root 4.0K Jan  6 09:11 .
 drwxr-xr-x 8 root root 4.0K Jan  6 09:10 ..
@@ -71,7 +70,7 @@ drwxr-xr-x 5 root root 4.0K Jan  6 09:11 src
 -rw-r--r-- 1 root root  347 Jan  6 09:11 Cargo.toml
 drwxr-xr-x 5 root root 4.0K Jan  6 09:11 src
 drwxr-xr-x 2 root root 4.0K Jan  6 09:11 example_crate
-root@c-nixos:/workspaces/stamp-cli/example_crate (master)$ cat Cargo.toml 
+root@c-nixos:/workspaces/stamp-cli (master)$ cat example_crate/Cargo.toml 
 [package]
 name = "example_crate"
 version = "0.1.0"
