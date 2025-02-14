@@ -62,7 +62,7 @@ enum Commands {
 struct TemplateConfig {
     name: Option<String>,
     description: Option<String>,
-    variables: HashMap<String, VariableConfig>,
+    variables: Option<HashMap<String, VariableConfig>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -137,7 +137,7 @@ fn render_template(template_path: PathBuf, destination_path: PathBuf) -> anyhow:
 
     // user prompt
     io::stdout().flush().unwrap();
-    for (key, variable) in &config.variables {
+    for (key, variable) in &config.variables.unwrap_or_default() {
         let postfix = variable
             .description
             .as_ref()
@@ -188,10 +188,16 @@ fn render_template(template_path: PathBuf, destination_path: PathBuf) -> anyhow:
         })?;
 
         if path_in_template.is_file() {
-            if path_in_template.file_name().is_some_and(|name| name == "stamp.yaml") {
+            if path_in_template
+                .file_name()
+                .is_some_and(|name| name == "stamp.yaml")
+            {
                 continue;
             }
-            if path_in_template.extension().map_or(false, |ext| ext == "tera") {
+            if path_in_template
+                .extension()
+                .map_or(false, |ext| ext == "tera")
+            {
                 // Render .tera template
                 let tera_template = fs::read_to_string(path_in_template)?;
                 let rendered = tera.render_str(&tera_template, &context)?;
