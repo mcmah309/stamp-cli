@@ -1,6 +1,6 @@
-use anyhow::{bail, Context};
 use clap::{Parser, Subcommand};
 use directories::ProjectDirs;
+use eros::{bail, Context};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
@@ -25,6 +25,7 @@ enum Commands {
         /// The template name in the registry
         name: String,
         /// Path to the destination folder
+        #[clap(default_value = ".")]
         destination: PathBuf,
     },
     /// Render a template from a source directory to a destination directory
@@ -82,7 +83,7 @@ struct RegistryInfo {
     path: String,
 }
 
-fn main() -> anyhow::Result<()> {
+fn main() -> eros::Result<()> {
     let cli = Cli::parse();
 
     let result = match cli.command {
@@ -112,7 +113,7 @@ fn main() -> anyhow::Result<()> {
 fn render_registered_template(
     template_name: String,
     destination_path: PathBuf,
-) -> anyhow::Result<()> {
+) -> eros::Result<()> {
     let registry = load_registry()?;
     if let Some(info) = registry.templates.get(&template_name) {
         render_template(PathBuf::from(&info.path), destination_path)
@@ -121,7 +122,7 @@ fn render_registered_template(
     }
 }
 
-fn render_template(template_path: PathBuf, destination_path: PathBuf) -> anyhow::Result<()> {
+fn render_template(template_path: PathBuf, destination_path: PathBuf) -> eros::Result<()> {
     // Load the template configuration
     let config_path = template_path.join("stamp.yaml");
     let config_contents = fs::read_to_string(&config_path)
@@ -182,8 +183,10 @@ fn render_template(template_path: PathBuf, destination_path: PathBuf) -> anyhow:
             .try_fold(PathBuf::new(), |acc, part| Ok(acc.join(&part?)));
         let output_path = output_path.map_err(|component_failed| {
             let output_path = output_path_original.to_string_lossy();
-            anyhow::anyhow!(
-                "Failed to render path component `{component_failed}` of `{output_path}`"
+            eros::traced!(
+                "Failed to render path component `{}` of `{}`",
+                component_failed,
+                output_path
             )
         })?;
 
@@ -220,10 +223,10 @@ fn render_template(template_path: PathBuf, destination_path: PathBuf) -> anyhow:
     Ok(())
 }
 
-fn register_templates(path: PathBuf, all: bool, overwrite: bool) -> anyhow::Result<()> {
+fn register_templates(path: PathBuf, all: bool, overwrite: bool) -> eros::Result<()> {
     let mut registry = load_registry()?;
     let mut added = 0;
-    let mut add_to_registry_fn = |path: &Path| -> anyhow::Result<()> {
+    let mut add_to_registry_fn = |path: &Path| -> eros::Result<()> {
         let config_path = path.join("stamp.yaml");
         if config_path.exists() {
             let config_contents = fs::read_to_string(&config_path)?;
@@ -293,7 +296,7 @@ fn register_templates(path: PathBuf, all: bool, overwrite: bool) -> anyhow::Resu
     Ok(())
 }
 
-fn list_templates() -> anyhow::Result<()> {
+fn list_templates() -> eros::Result<()> {
     let registry = load_registry()?;
 
     if registry.templates.is_empty() {
@@ -315,7 +318,7 @@ fn list_templates() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn load_registry() -> anyhow::Result<Registry> {
+fn load_registry() -> eros::Result<Registry> {
     let registry_path = get_registry_path()?;
     if let Ok(contents) = fs::read_to_string(&registry_path) {
         let registry: Registry = serde_json::from_str(&contents).with_context(|| {
@@ -332,7 +335,7 @@ fn load_registry() -> anyhow::Result<Registry> {
     }
 }
 
-fn get_registry_path() -> anyhow::Result<PathBuf> {
+fn get_registry_path() -> eros::Result<PathBuf> {
     if let Some(proj_dirs) = ProjectDirs::from("com", "mcmah309", "stamp") {
         let config_dir = proj_dirs.config_dir();
         fs::create_dir_all(config_dir)?;
@@ -342,14 +345,14 @@ fn get_registry_path() -> anyhow::Result<PathBuf> {
     }
 }
 
-fn save_registry(registry: &Registry) -> anyhow::Result<()> {
+fn save_registry(registry: &Registry) -> eros::Result<()> {
     let registry_path = get_registry_path()?;
     let contents = serde_json::to_string_pretty(registry)?;
     fs::write(registry_path, contents)?;
     Ok(())
 }
 
-fn remove_template(names: Vec<String>, all: bool) -> anyhow::Result<()> {
+fn remove_template(names: Vec<String>, all: bool) -> eros::Result<()> {
     let mut registry = load_registry()?;
     if all {
         registry.templates.clear();
