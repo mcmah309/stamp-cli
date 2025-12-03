@@ -4,30 +4,44 @@
 	"image": "rust",
 	"customizations": {
 		"vscode": {
+			"settings": {
+				"extensions.verifySignature": false
+			},
 			"extensions": [
-				"rust-lang.rust-analyzer",
-				"fill-labs.dependi",
-				"vadimcn.vscode-lldb",
-				"chunsen.bracket-select",
-				"dzhavat.bracket-pair-toggler",
-				"tamasfe.even-better-toml",
-				"oderwat.indent-rainbow",
-				"fabiospampinato.vscode-git-history",
-				"streetsidesoftware.code-spell-checker",
+				// general tools
+				"usernamehw.errorlens", // Inline diagnostic errors
+				"ryuta46.multi-command", // Used in settings.json to add custom command combinators
+				// "streetsidesoftware.code-spell-checker", // Spell check
+				"redhat.vscode-yaml", // yaml lsp
+                "qufiwefefwoyn.inline-sql-syntax", // sql syntax highlighting in strings with `--sql`
+				
+				// rust
+				"fill-labs.dependi", // dependency validation in Cargo.toml
+				"tamasfe.even-better-toml", // toml lsp
+				"rust-lang.rust-analyzer", // rust lsp
+				"vadimcn.vscode-lldb", // rust debugger
+				
+				
+				
+				
+				
+				
+				
+				
 			]
 		}
 	},
 	"mounts": [
-		// ssh
-		"source=/home/henry/.ssh/,target=/root/.ssh,type=bind",
-		// usb. When plugging in a previously plugged in android device, you may need to run `adb kill-server` to recognize it again.
-		"source=/dev/bus/usb,target=/dev/bus/usb,type=bind",
 	],
 	"runArgs": [
 		"--privileged",
 		"--net=host",
-//		"--env-file",
-//		".activate/.env"
+		"--pids-limit=16384", // Some processes like rustc can spawn more than the default process/thread limit of 2048
+		// ssh
+		"-v", "/home/henry/.ssh/:/root/.ssh",
+		
+		
 	],
+	
 	"remoteUser": "root",
 }
