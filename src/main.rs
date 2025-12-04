@@ -1,6 +1,7 @@
 use clap::{Parser, Subcommand};
 use directories::ProjectDirs;
 use eros::{bail, Context};
+use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
@@ -63,7 +64,7 @@ enum Commands {
 struct TemplateConfig {
     name: Option<String>,
     description: Option<String>,
-    variables: Option<HashMap<String, VariableConfig>>,
+    variables: Option<IndexMap<String, VariableConfig>>,
 }
 
 #[derive(Debug, Deserialize)]
