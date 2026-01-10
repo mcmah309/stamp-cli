@@ -28,6 +28,12 @@ enum Commands {
         /// Path to the destination folder
         #[clap(default_value = ".")]
         destination: PathBuf,
+        /// Overwrite any conflicting files
+        #[clap(long, group = "conflict_strategy")]
+        overwrite_conflicts: bool,
+        /// Skip any conflicting files
+        #[clap(long, group = "conflict_strategy")]
+        skip_conflicts: bool,
     },
     /// Render a template from a source directory to a destination directory
     From {
@@ -35,6 +41,12 @@ enum Commands {
         source: PathBuf,
         /// Path to the destination folder
         destination: PathBuf,
+        /// Overwrite any conflicting files
+        #[clap(long, group = "conflict_strategy")]
+        overwrite_conflicts: bool,
+        /// Skip any conflicting files
+        #[clap(long, group = "conflict_strategy")]
+        skip_conflicts: bool,
     },
     /// Register templates to the registry
     Register {
@@ -84,15 +96,47 @@ struct RegistryInfo {
     path: String,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum ConflictStrategy {
+    Fail,
+    Overwrite,
+    Skip,
+}
+
 fn main() -> eros::Result<()> {
     let cli = Cli::parse();
 
     let result = match cli.command {
-        Commands::Use { name, destination } => render_registered_template(name, destination),
+        Commands::Use {
+            name,
+            destination,
+            overwrite_conflicts,
+            skip_conflicts,
+        } => {
+            let strategy = if overwrite_conflicts {
+                ConflictStrategy::Overwrite
+            } else if skip_conflicts {
+                ConflictStrategy::Skip
+            } else {
+                ConflictStrategy::Fail
+            };
+            render_registered_template(name, destination, strategy)
+        }
         Commands::From {
             source,
             destination,
-        } => render_template(source, destination),
+            overwrite_conflicts,
+            skip_conflicts,
+        } => {
+            let strategy = if overwrite_conflicts {
+                ConflictStrategy::Overwrite
+            } else if skip_conflicts {
+                ConflictStrategy::Skip
+            } else {
+                ConflictStrategy::Fail
+            };
+            render_template(source, destination, strategy)
+        }
         Commands::Register {
             path,
             all,
@@ -114,16 +158,21 @@ fn main() -> eros::Result<()> {
 fn render_registered_template(
     template_name: String,
     destination_path: PathBuf,
+    conflict_strategy: ConflictStrategy,
 ) -> eros::Result<()> {
     let registry = load_registry()?;
     if let Some(info) = registry.templates.get(&template_name) {
-        render_template(PathBuf::from(&info.path), destination_path)
+        render_template(PathBuf::from(&info.path), destination_path, conflict_strategy)
     } else {
         bail!("Template '{}' not found in registry", template_name)
     }
 }
 
-fn render_template(template_path: PathBuf, destination_path: PathBuf) -> eros::Result<()> {
+fn render_template(
+    template_path: PathBuf,
+    destination_path: PathBuf,
+    conflict_strategy: ConflictStrategy,
+) -> eros::Result<()> {
     // Load the template configuration
     let config_path = template_path.join("stamp.yaml");
     let config_contents = fs::read_to_string(&config_path)
@@ -168,28 +217,17 @@ fn render_template(template_path: PathBuf, destination_path: PathBuf) -> eros::R
     tera.autoescape_on(vec![]);
     tera.set_escape_fn(|e| e.to_string());
 
+    struct FileAction {
+        source: PathBuf,
+        destination: PathBuf,
+        is_tera: bool,
+    }
+
+    let mut actions: Vec<FileAction> = Vec::new();
+
     for entry in walkdir::WalkDir::new(&template_path) {
         let entry = entry?;
         let path_in_template = entry.path();
-        let relative_path_in_template = path_in_template.strip_prefix(&template_path)?;
-        let output_path_original = destination_path.join(relative_path_in_template);
-        // Treat each path component as a template
-        let output_path: Result<PathBuf, String> = output_path_original
-            .components()
-            .map(|e| {
-                let str_part = e.as_os_str().to_string_lossy();
-                let processed_part = tera.render_str(&str_part, &context);
-                processed_part.map_err(|_| str_part.to_string())
-            })
-            .try_fold(PathBuf::new(), |acc, part| Ok(acc.join(&part?)));
-        let output_path = output_path.map_err(|component_failed| {
-            let output_path = output_path_original.to_string_lossy();
-            eros::traced!(
-                "Failed to render path component `{}` of `{}`",
-                component_failed,
-                output_path
-            )
-        })?;
 
         if path_in_template.is_file() {
             if path_in_template
@@ -198,25 +236,88 @@ fn render_template(template_path: PathBuf, destination_path: PathBuf) -> eros::R
             {
                 continue;
             }
-            if path_in_template
-                .extension()
-                .map_or(false, |ext| ext == "tera")
-            {
-                // Render .tera template
-                let tera_template = fs::read_to_string(path_in_template)?;
-                let rendered = tera.render_str(&tera_template, &context)?;
+        
+            let relative_path_in_template = path_in_template.strip_prefix(&template_path)?;
+            let output_path_original = destination_path.join(relative_path_in_template);
+            // Treat each path component as a template
+            let output_path: Result<PathBuf, String> = output_path_original
+                .components()
+                .map(|e| {
+                    let str_part = e.as_os_str().to_string_lossy();
+                    let processed_part = tera.render_str(&str_part, &context);
+                    processed_part.map_err(|_| str_part.to_string())
+                })
+                .try_fold(PathBuf::new(), |acc, part| Ok(acc.join(&part?)));
+            let output_path = output_path.map_err(|component_failed| {
+                let output_path = output_path_original.to_string_lossy();
+                eros::traced!(
+                    "Failed to render path component `{}` of `{}`",
+                    component_failed,
+                    output_path
+                )
+            })?;
 
-                if let Some(parent) = output_path.parent() {
-                    fs::create_dir_all(parent)?;
-                }
-                fs::write(output_path.with_extension(""), rendered)?;
-            } else {
-                // Copy other files
-                if let Some(parent) = output_path.parent() {
-                    fs::create_dir_all(parent)?;
-                }
-                fs::copy(&path_in_template, &output_path)?;
+            let file_name = path_in_template
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy();
+            let is_tera = file_name.ends_with(".tera") || file_name.contains(".tera.");
+
+            let mut final_output_path = output_path;
+            if is_tera {
+                let new_name = final_output_path
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .replace(".tera", "");
+                final_output_path.set_file_name(new_name);
             }
+
+            actions.push(FileAction {
+                source: path_in_template.to_path_buf(),
+                destination: final_output_path,
+                is_tera,
+            });
+        }
+    }
+
+    match conflict_strategy {
+        ConflictStrategy::Fail => {
+            let mut conflicts = Vec::new();
+            for action in &actions {
+                if action.destination.exists() {
+                    conflicts.push(action.destination.clone());
+                }
+            }
+            if !conflicts.is_empty() {
+                eprintln!("Conflicting files found:");
+                for conflict in conflicts {
+                    eprintln!(" - {}", conflict.to_string_lossy());
+                }
+                bail!("Destination files already exist. Use --overwrite-conflicts or --skip-conflicts to resolve.");
+            }
+        }
+        ConflictStrategy::Skip => {
+            actions.retain(|action| !action.destination.exists());
+        }
+        ConflictStrategy::Overwrite => {
+            // Do nothing, just proceed to overwrite
+        }
+    }
+
+    for action in actions {
+        if let Some(parent) = action.destination.parent() {
+            fs::create_dir_all(parent)?;
+        }
+
+        if action.is_tera {
+            // Render .tera template
+            let tera_template = fs::read_to_string(&action.source)?;
+            let rendered = tera.render_str(&tera_template, &context)?;
+            fs::write(action.destination, rendered)?;
+        } else {
+            // Copy other files
+            fs::copy(&action.source, &action.destination)?;
         }
     }
 
