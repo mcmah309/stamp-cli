@@ -1,0 +1,11 @@
+[meta]
+
+[[questions]]
+id = "name"
+type = "string"
+prompt = "Name of the container"
+
+[[questions]]
+id = "image"
+type = "string"
+prompt = "Image to use"

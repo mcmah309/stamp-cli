@@ -1,16 +1,15 @@
 use clap::{Parser, Subcommand};
 use directories::ProjectDirs;
 use eros::{bail, Context};
-use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
     fs,
-    io::{self, Write},
     path::{Path, PathBuf},
     process::exit,
 };
 use tera::Tera;
+use dialoguer::{theme::ColorfulTheme, Confirm, Input, MultiSelect, Select};
 
 #[derive(Parser)]
 #[command(name = "yard", author = "Henry McMahon", version = "0.1", about =  "A cli tool for templates", long_about = None)]
@@ -74,15 +73,47 @@ enum Commands {
 
 #[derive(Debug, Deserialize)]
 struct TemplateConfig {
-    name: Option<String>,
+    #[serde(default)]
+    meta: MetaConfig,
+    #[serde(default)]
+    questions: Vec<Question>,
+}
+
+#[derive(Debug, Deserialize, Default)]
+struct MetaConfig {
     description: Option<String>,
-    variables: Option<IndexMap<String, VariableConfig>>,
+    name: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
-struct VariableConfig {
-    description: Option<String>,
-    default: Option<String>,
+struct Question {
+    id: String,
+    #[serde(rename = "type")]
+    kind: QuestionType,
+    prompt: String,
+    #[serde(default)]
+    default: Option<toml::Value>,
+    #[serde(default)]
+    options: Option<Vec<String>>,
+    #[serde(default)]
+    choices: Option<Vec<MultiChoice>>,
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "kebab-case")]
+enum QuestionType {
+    String,
+    Select,
+    MultiSelect,
+    Bool,
+}
+
+#[derive(Debug, Deserialize)]
+struct MultiChoice {
+    id: String,
+    prompt: String,
+    #[serde(default)]
+    default: bool,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -174,43 +205,161 @@ fn render_template(
     conflict_strategy: ConflictStrategy,
 ) -> eros::Result<()> {
     // Load the template configuration
-    let config_path = template_path.join("stamp.yaml");
+    let config_path = template_path.join("stamp.toml");
     let config_contents = fs::read_to_string(&config_path)
         .with_context(|| format!("could not read `{}`", config_path.to_string_lossy()))?;
-    let config: TemplateConfig = serde_yaml::from_str(&config_contents).with_context(|| {
+    let config: TemplateConfig = toml::from_str(&config_contents).with_context(|| {
         format!(
             "Template config from `{}` is not valid",
             config_path.to_string_lossy()
         )
     })?;
 
+    // Validate config
+    let mut validation_errors = Vec::new();
+    for question in &config.questions {
+        if question.options.is_some() && question.choices.is_some() {
+            validation_errors.push(format!(
+                "Question '{}' cannot have both 'options' and 'choices'",
+                question.id
+            ));
+        }
+
+        match question.kind {
+            QuestionType::Select => {
+                if question.options.is_none() {
+                    validation_errors.push(format!(
+                        "Question '{}' of type 'select' must have 'options'",
+                        question.id
+                    ));
+                }
+                if question.choices.is_some() {
+                    validation_errors.push(format!(
+                        "Question '{}' of type 'select' cannot have 'choices'",
+                        question.id
+                    ));
+                }
+            }
+            QuestionType::MultiSelect => {
+                if question.choices.is_none() {
+                    validation_errors.push(format!(
+                        "Question '{}' of type 'multi-select' must have 'choices'",
+                        question.id
+                    ));
+                }
+                if question.options.is_some() {
+                    validation_errors.push(format!(
+                        "Question '{}' of type 'multi-select' cannot have 'options'",
+                        question.id
+                    ));
+                }
+            }
+            QuestionType::String | QuestionType::Bool => {
+                if question.options.is_some() {
+                    validation_errors.push(format!(
+                        "Question '{}' of type '{:?}' cannot have 'options'",
+                        question.id, question.kind
+                    ));
+                }
+                if question.choices.is_some() {
+                    validation_errors.push(format!(
+                        "Question '{}' of type '{:?}' cannot have 'choices'",
+                        question.id, question.kind
+                    ));
+                }
+            }
+        }
+    }
+
+    if !validation_errors.is_empty() {
+        eprintln!("Invalid template configuration:");
+        for error in validation_errors {
+            eprintln!(" - {}", error);
+        }
+        bail!("Template configuration validation failed");
+    }
+
     let mut context = tera::Context::new();
 
     // user prompt
-    io::stdout().flush().unwrap();
-    for (key, variable) in &config.variables.unwrap_or_default() {
-        let postfix = variable
-            .description
-            .as_ref()
-            .map(|e| format!(" - {e}"))
-            .unwrap_or("".to_string());
-        let prompt_message = format!("{key}{postfix}");
-        let mut user_value: String = String::new();
-        println!("🎤 {prompt_message}");
-        if let Some(default) = &variable.default {
-            print!("[{default}]:")
-        } else {
-            print!("[]:")
-        }
-        io::stdout().flush().unwrap();
-        io::stdin().read_line(&mut user_value).unwrap();
-        user_value = user_value.trim().to_owned();
-        if user_value.is_empty() {
-            if let Some(default) = &variable.default {
-                user_value = default.clone();
+    let total_questions = config.questions.len();
+    for (i, question) in config.questions.iter().enumerate() {
+        let step = i + 1;
+        let prompt = format!("[{}/{}] {}", step, total_questions, question.prompt);
+        let theme = ColorfulTheme::default();
+
+        match question.kind {
+            QuestionType::String => {
+                let default_val = question
+                    .default
+                    .as_ref()
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string());
+                
+                let mut input = Input::<String>::with_theme(&theme);
+                input = input.with_prompt(&prompt);
+                
+                if let Some(default) = default_val {
+                    input = input.default(default);
+                }
+                
+                let value = input.interact()?;
+                context.insert(&question.id, &value);
+            },
+            QuestionType::Bool => {
+                let default_val = question
+                    .default
+                    .as_ref()
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false);
+
+                let value = Confirm::with_theme(&theme)
+                    .with_prompt(&prompt)
+                    .default(default_val)
+                    .interact()?;
+                context.insert(&question.id, &value);
+            }
+            QuestionType::Select => {
+                if let Some(options) = &question.options {
+                    let default_idx = question
+                        .default
+                        .as_ref()
+                        .and_then(|v| v.as_str())
+                        .and_then(|d| options.iter().position(|r| r == d))
+                        .unwrap_or(0);
+                    
+                    let selection = Select::with_theme(&theme)
+                        .with_prompt(&prompt)
+                        .default(default_idx)
+                        .items(options)
+                        .interact()?;
+                    
+                    context.insert(&question.id, &options[selection]);
+                }
+            },
+            QuestionType::MultiSelect => {
+                if let Some(choices) = &question.choices {
+                    let defaults: Vec<bool> = choices.iter().map(|c| c.default).collect();
+                    let items: Vec<&String> = choices.iter().map(|c| &c.prompt).collect();
+                    
+                    let selections = MultiSelect::with_theme(&theme)
+                        .with_prompt(&prompt)
+                        .items(&items)
+                        .defaults(&defaults)
+                        .interact()?;
+                    
+                    // Add boolean variables for each choice ID
+                    for (idx, choice) in choices.iter().enumerate() {
+                        let is_selected = selections.contains(&idx);
+                        context.insert(&choice.id, &is_selected);
+                    }
+                    
+                    // Also add a list of selected IDs to the main question ID
+                    let selected_ids: Vec<&String> = selections.iter().map(|&idx| &choices[idx].id).collect();
+                    context.insert(&question.id, &selected_ids);
+                }
             }
         }
-        context.insert(key, &user_value);
     }
 
     let mut tera = Tera::default();
@@ -232,7 +381,7 @@ fn render_template(
         if path_in_template.is_file() {
             if path_in_template
                 .file_name()
-                .is_some_and(|name| name == "stamp.yaml")
+                .is_some_and(|name| name == "stamp.toml")
             {
                 continue;
             }
@@ -329,21 +478,21 @@ fn register_templates(path: PathBuf, all: bool, overwrite: bool) -> eros::Result
     let mut registry = load_registry()?;
     let mut added = 0;
     let mut add_to_registry_fn = |path: &Path| -> eros::Result<()> {
-        let config_path = path.join("stamp.yaml");
+        let config_path = path.join("stamp.toml");
         if config_path.exists() {
             let config_contents = fs::read_to_string(&config_path)?;
             let config: TemplateConfig =
-                serde_yaml::from_str(&config_contents).with_context(|| {
+                toml::from_str(&config_contents).with_context(|| {
                     format!(
                         "Template config from `{}` is not valid",
                         config_path.to_string_lossy()
                     )
                 })?;
             let info = RegistryInfo {
-                description: config.description,
+                description: config.meta.description,
                 path: path.canonicalize()?.to_string_lossy().to_string(),
             };
-            let name = match config.name {
+            let name = match config.meta.name {
                 Some(value) => value,
                 None => path
                     .components()

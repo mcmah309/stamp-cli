@@ -1,7 +1,0 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/mcmah309/stamp-cli/master/src/schemas/stamp-schema.json
-
-variables:
-  name: 
-    description: Name of the container
-  image: 
-    description: Image to use
