@@ -10,7 +10,6 @@
 			"extensions": [
 				// general tools
 				"usernamehw.errorlens", // Inline diagnostic errors
-				"ryuta46.multi-command", // Used in settings.json to add custom command combinators
 				// "streetsidesoftware.code-spell-checker", // Spell check
 				"redhat.vscode-yaml", // yaml lsp
                 "qufiwefefwoyn.inline-sql-syntax", // sql syntax highlighting in strings with `--sql`

@@ -29,18 +29,40 @@ stamp-cli uses [tera](https://keats.github.io/tera/docs/) for templating. Any fi
 suffix will be treated as a tera template when applying a template through the `use` or `from`
 sub commands.
 
-## stamp.yaml
-Add a `stamp.yaml` file to a directory to make the directory a valid template. All fields are optional. Example config:
-```yaml
-# yaml-language-server: $schema=https://raw.githubusercontent.com/mcmah309/stamp-cli/master/src/schemas/stamp-schema.json
-name: Name of template
-description: Description of template
-variables:
-  template_variable1: # Variable name in template
-    description: Description of template variable 
-    default: Default value of template variable
-  template_variable2:
+## stamp.toml
+Add a `stamp.toml` file to a directory to make the directory a valid template. All fields are optional. Example config:
+```toml
+[meta]
+description = "A generic template for devcontainers"
+name = "My Template"
+
+# String input
+[[questions]]
+id = "name"
+type = "string"
+prompt = "What is the project name?"
+default = "my-project"
+
+# Selection from a list
+[[questions]]
+id = "toolchain"
+type = "select"
+prompt = "Choose a toolchain:"
+options = ["stable", "beta", "nightly"]
+default = "stable"
+
+# Multiple selection
+[[questions]]
+id = "features"
+type = "multi-select"
+prompt = "Select optional components:"
+choices = [
+  { id = "rust_support", prompt = "Rust LSP", default = true },
+  { id = "sh_support",   prompt = "Shell LSP", default = false },
+  { id = "c_support",    prompt = "C LSP",     default = false }
+]
 ```
+
 ## Usage Example
 From [tests/templates/axum_server](https://github.com/mcmah309/stamp-cli/tree/master/tests/templates/axum_server)
 ```console
@@ -50,44 +72,35 @@ Adding template `rust`
 Adding template `flutter_rust`
 Templates registered successfully
 root@c-nixos:/workspaces/stamp-cli (master)$ stamp list
-axum_server:
-        description: An axum server project
-        path: /workspaces/stamp-cli/tests/templates/axum_server
-flutter_rust:
-        path: /workspaces/stamp-cli/tests/templates/devcontainers/flutter_rust
-rust:
-        path: /workspaces/stamp-cli/tests/templates/devcontainers/rust
+devcontainer
+  /home/henry/templates/devcontainer
+
+axum_server
+  /home/henry/templates/axum_server
+
+python-project
+  /home/henry/templates/python-project
+
+bash_script
+  /home/henry/templates/bash_script
+
+bun
+  /home/henry/templates/bun
 root@c-nixos:/workspaces/stamp-cli (master)$ stamp use axum_server example_crate
-🎤 crate_name - Name of crate
-[]:stamp_poc
+✔ [1/3] Container Name · rust
+✔ [2/3] Base Image · rust:latest
+? [3/3] Which features would you like to include? ›
+⬚ Shell LSP support
+⬚ Rust LSP and tools
+⬚ C LSP and tools
+⬚ Zig LSP and tools
+⬚ Python LSP and tools
+⬚ Flutter/Dart LSP and tools
+⬚ Dioxus support
+⬚ Web dev (HTML/CSS/Tailwind)
+⬚ USB devices support
+⬚ XDG portal support
 Template rendered successfully to "example_crate"
-root@c-nixos:/workspaces/stamp-cli (master)$ l example_crate
-total 24K
-drwxr-xr-x 4 root root 4.0K Jan 10 22:45 .
-drwxr-xr-x 8 root root 4.0K Jan 10 22:45 ..
--rw-r--r-- 1 root root    7 Jan 10 22:45 .gitignore
--rw-r--r-- 1 root root  335 Jan 10 22:45 Cargo.toml
-drwxr-xr-x 5 root root 4.0K Jan 10 22:45 src
-drwxr-xr-x 2 root root 4.0K Jan 10 22:45 stamp_poc
-root@c-nixos:/workspaces/stamp-cli (master)$ cat example_crate/Cargo.toml
-[package]
-name = "stamp_poc"
-version = "0.1.0"
-edition = "2021"
-
-[lib]
-name = "stamp_poc_lib"
-path = "src/lib.rs"
-
-[[bin]]
-name = "stamp_poc"
-path = "src/bin/main.rs"
-
-[dependencies]
-axum = {version = "0.8.0", features = ["ws"] }
-tracing = "0.1"
-tracing-subscriber = "0.3"
-tokio = { version = "1", features = ["full"] }
 ```
 
 See [tests/templates/](https://github.com/mcmah309/stamp-cli/tree/master/tests/templates) for more.
