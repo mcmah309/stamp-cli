@@ -41,7 +41,7 @@ name = "My Template"
 # String input
 [[questions]]
 id = "name"
-type = "string"
+type = "string" # `bool` also supported
 prompt = "What is the project name?"
 default = "my-project"
 
