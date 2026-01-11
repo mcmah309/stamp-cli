@@ -209,7 +209,6 @@ fn render_template(
     destination_path: PathBuf,
     conflict_strategy: ConflictStrategy,
 ) -> eros::Result<()> {
-    // Load the template configuration
     let config_path = template_path.join("stamp.toml");
     let config_contents = fs::read_to_string(&config_path)
         .with_context(|| format!("could not read `{}`", config_path.to_string_lossy()))?;
@@ -220,7 +219,6 @@ fn render_template(
         )
     })?;
 
-    // Validate config
     let mut validation_errors = Vec::new();
     for question in &config.questions {
         if question.options.is_some() && question.choices.is_some() {
@@ -330,7 +328,6 @@ fn render_template(
 
     let mut context = tera::Context::new();
 
-    // user prompt
     let total_questions = config.questions.len();
     for (i, question) in config.questions.iter().enumerate() {
         let step = i + 1;
@@ -397,13 +394,11 @@ fn render_template(
                         .defaults(&defaults)
                         .interact()?;
 
-                    // Add boolean variables for each choice ID
                     for (idx, choice) in choices.iter().enumerate() {
                         let is_selected = selections.contains(&idx);
                         context.insert(&choice.id, &is_selected);
                     }
 
-                    // Also add a list of selected IDs to the main question ID
                     let selected_ids: Vec<&String> =
                         selections.iter().map(|&idx| &choices[idx].id).collect();
                     context.insert(&question.id, &selected_ids);
@@ -438,7 +433,6 @@ fn render_template(
 
             let relative_path_in_template = path_in_template.strip_prefix(&template_path)?;
             let output_path_original = destination_path.join(relative_path_in_template);
-            // Treat each path component as a template
             let output_path: Result<PathBuf, String> = output_path_original
                 .components()
                 .map(|e| {
@@ -500,7 +494,7 @@ fn render_template(
             actions.retain(|action| !action.destination.exists());
         }
         ConflictStrategy::Overwrite => {
-            // Do nothing, just proceed to overwrite
+            // Do nothing
         }
     }
 
@@ -510,12 +504,10 @@ fn render_template(
         }
 
         if action.is_tera {
-            // Render .tera template
             let tera_template = fs::read_to_string(&action.source)?;
             let rendered = tera.render_str(&tera_template, &context)?;
             fs::write(action.destination, rendered)?;
         } else {
-            // Copy other files
             fs::copy(&action.source, &action.destination)?;
         }
     }
@@ -673,7 +665,6 @@ fn find_templates(sources: &[PathBuf]) -> Vec<FoundTemplate> {
                             // Found a template
                             excluded_paths.insert(path.clone());
 
-                            // Parse name/desc
                             let name = path
                                 .file_name()
                                 .unwrap_or_default()
