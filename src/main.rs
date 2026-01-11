@@ -9,7 +9,7 @@ use std::{collections::HashSet, fs, path::PathBuf, process::exit};
 use tera::Tera;
 
 #[derive(Parser)]
-#[command(name = "yard", author = "Henry McMahon", version = "0.1", about =  "A cli tool for templates", long_about = None)]
+#[command(name = "yard", author = "Henry McMahon", version = "0.1", about =  "A cli tool for applying project templates", long_about = None)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,

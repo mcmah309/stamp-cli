@@ -2,7 +2,7 @@
 name = "stamp-cli"
 version = "0.2.4"
 edition = "2021"
-description = "A cli tool for templates"
+description = "A cli tool for applying project templates"
 license = "Apache-2.0"
 
 [[bin]]
