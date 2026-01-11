@@ -10,6 +10,7 @@ use std::{
 };
 use tera::Tera;
 use dialoguer::{theme::ColorfulTheme, Confirm, Input, MultiSelect, Select};
+use console::style;
 
 #[derive(Parser)]
 #[command(name = "yard", author = "Henry McMahon", version = "0.1", about =  "A cli tool for templates", long_about = None)]
@@ -277,6 +278,50 @@ fn render_template(
             eprintln!(" - {}", error);
         }
         bail!("Template configuration validation failed");
+    }
+
+    if conflict_strategy == ConflictStrategy::Fail {
+        let mut early_conflicts = Vec::new();
+        for entry in walkdir::WalkDir::new(&template_path) {
+            let entry = entry?;
+            let path = entry.path();
+            if path.is_file() {
+                if path.file_name().is_some_and(|n| n == "stamp.toml") {
+                    continue;
+                }
+
+                let relative = path.strip_prefix(&template_path)?;
+                let relative_str = relative.to_string_lossy();
+
+                if relative_str.contains("{{") {
+                   // skip interpolation since these will be replaced and we don't know what the output will look like
+                   continue; 
+                }
+                let mut output_path = destination_path.join(relative);
+                    let file_name = path.file_name().unwrap_or_default().to_string_lossy();
+                    let is_tera = file_name.ends_with(".tera") || file_name.contains(".tera.");
+                    if is_tera {
+                        let new_name = output_path
+                            .file_name()
+                            .unwrap_or_default()
+                            .to_string_lossy()
+                            .replace(".tera", "");
+                        output_path.set_file_name(new_name);
+                    }
+
+                    if output_path.exists() {
+                        early_conflicts.push(output_path);
+                    }
+            }
+        }
+
+        if !early_conflicts.is_empty() {
+            eprintln!("Conflicting files found:");
+            for conflict in early_conflicts {
+                eprintln!(" - {}", conflict.to_string_lossy());
+            }
+            bail!("Destination files already exist. Use --overwrite-conflicts or --skip-conflicts to resolve.");
+        }
     }
 
     let mut context = tera::Context::new();
@@ -552,18 +597,21 @@ fn list_templates() -> eros::Result<()> {
 
     if registry.templates.is_empty() {
         println!("No templates registered");
+        return Ok(());
     }
 
     for (name, info) in registry.templates {
         let RegistryInfo { description, path } = info;
-        if let Some(description) = description {
-            println!(
-                "{}:\n\tdescription: {}\n\tpath: {}",
-                name, description, path
-            );
-        } else {
-            println!("{}:\n\tpath: {}", name, path);
+        
+        print!("{}", style(&name).bold().cyan());
+        
+        if let Some(desc) = description {
+            print!(" - {}", style(desc).italic());
         }
+        println!();
+        
+        println!("  {}", style(path).dim());
+        println!(); 
     }
 
     Ok(())
