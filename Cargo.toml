@@ -4,6 +4,7 @@ version = "0.3.0"
 edition = "2024"
 description = "A cli tool for applying project templates"
 license = "Apache-2.0"
+repository = "https://github.com/mcmah309/stamp-cli"
 
 [[bin]]
 name = "stamp"
