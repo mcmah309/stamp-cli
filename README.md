@@ -26,7 +26,7 @@ Options:
 
 
 ## .tera
-stamp-cli uses [tera](https://keats.github.io/tera/docs/) for templating. Any file including `.tera` will be treated as a tera template when applying a template through the `use` or `from`
+stamp-cli uses [tera](https://keats.github.io/tera/docs/#templates) for templating. Any file including `.tera` will be treated as a tera template when applying a template through the `use` or `from`
 sub commands. e.g. `path/file.tera.json` or `path/file.json.tera`.
 
 Any file name or directory name including a template interpolation (`{{ ... }}`) will also be treated as a template.
