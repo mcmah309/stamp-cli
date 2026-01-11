@@ -1,7 +1,7 @@
 [package]
 name = "stamp-cli"
 version = "0.2.4"
-edition = "2021"
+edition = "2024"
 description = "A cli tool for applying project templates"
 license = "Apache-2.0"
 
