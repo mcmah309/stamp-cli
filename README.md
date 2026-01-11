@@ -14,8 +14,8 @@ Usage: stamp <COMMAND>
 Commands:
   use       Render a template in the registry to a destination directory
   from      Render a template from a source directory to a destination directory
-  register  Register templates to the registry
-  remove    Remove registered templates
+  register  Register a template source directory. All templates within this directory (recursive) will be available.
+  remove    Remove a registered source directory
   list      List registered templates
   help      Print this message or the help of the given subcommand(s)
 
@@ -23,6 +23,7 @@ Options:
   -h, --help     Print help
   -V, --version  Print version
 ```
+
 
 ## .tera
 stamp-cli uses [tera](https://keats.github.io/tera/docs/) for templating. Any file with a `.tera`
@@ -66,26 +67,18 @@ choices = [
 ## Usage Example
 From [tests/templates/axum_server](https://github.com/mcmah309/stamp-cli/tree/master/tests/templates/axum_server)
 ```console
-root@c-nixos:/workspaces/stamp-cli (master)$ stamp register tests/templates/ -a
-Adding template `axum_server`
-Adding template `rust`
-Adding template `flutter_rust`
-Templates registered successfully
+root@c-nixos:/workspaces/stamp-cli (master)$ stamp register tests/templates/
+Source `/workspaces/stamp-cli/tests/templates` registered successfully
 root@c-nixos:/workspaces/stamp-cli (master)$ stamp list
-devcontainer
-  /home/henry/templates/devcontainer
+axum_server - An axum server project
+  /workspaces/stamp-cli/tests/templates/axum_server
 
-axum_server
-  /home/henry/templates/axum_server
+flutter_rust
+  /workspaces/stamp-cli/tests/templates/devcontainers/flutter_rust
 
-python-project
-  /home/henry/templates/python-project
+rust
+  /workspaces/stamp-cli/tests/templates/devcontainers/rust
 
-bash_script
-  /home/henry/templates/bash_script
-
-bun
-  /home/henry/templates/bun
 root@c-nixos:/workspaces/stamp-cli (master)$ stamp use axum_server example_crate
 ✔ [1/3] Container Name · rust
 ✔ [2/3] Base Image · rust:latest

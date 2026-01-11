@@ -10,14 +10,15 @@ name = "stamp"
 path = "src/main.rs"
 
 [dependencies]
-clap = { version = "4.5.53", features = ["derive"] }
+clap = { version = "4.5.54", features = ["derive"] }
 tera = "1.20.1"
 serde = { version = "1.0.228", features = ["derive"] }
-serde_json = "1.0.145"
+serde_json = "1.0.149"
 directories = "6.0.0"
 eros = "0.5.0"
 walkdir = "2.5.0"
-indexmap = { version = "2.12.1", features = ["serde"] }
-toml = "0.9.11"
+indexmap = { version = "2.13.0", features = ["serde"] }
+toml = "0.9.8"
 dialoguer = "0.12.0"
 console = "0.16.2"
+ignore = "0.4.25"
