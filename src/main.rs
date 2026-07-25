@@ -1,8 +1,8 @@
 use clap::{Parser, Subcommand};
 use console::style;
-use dialoguer::{theme::ColorfulTheme, Confirm, Input, MultiSelect, Select};
+use dialoguer::{Confirm, Input, MultiSelect, Select, theme::ColorfulTheme};
 use directories::ProjectDirs;
-use eros::{bail, Context};
+use eros::{Context, bail};
 use ignore::WalkBuilder;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashSet, fs, path::PathBuf, process::exit};
@@ -322,7 +322,9 @@ fn render_template(
             for conflict in early_conflicts {
                 eprintln!(" - {}", conflict.to_string_lossy());
             }
-            bail!("Destination files already exist. Use --overwrite-conflicts or --skip-conflicts to resolve.");
+            bail!(
+                "Destination files already exist. Use --overwrite-conflicts or --skip-conflicts to resolve."
+            );
         }
     }
 
@@ -443,7 +445,7 @@ fn render_template(
                 .try_fold(PathBuf::new(), |acc, part| Ok(acc.join(&part?)));
             let output_path = output_path.map_err(|component_failed| {
                 let output_path = output_path_original.to_string_lossy();
-                eros::traced!(
+                eros::error!(
                     "Failed to render path component `{}` of `{}`",
                     component_failed,
                     output_path
@@ -487,7 +489,9 @@ fn render_template(
                 for conflict in conflicts {
                     eprintln!(" - {}", conflict.to_string_lossy());
                 }
-                bail!("Destination files already exist. Use --overwrite-conflicts or --skip-conflicts to resolve.");
+                bail!(
+                    "Destination files already exist. Use --overwrite-conflicts or --skip-conflicts to resolve."
+                );
             }
         }
         ConflictStrategy::Skip => {
@@ -673,13 +677,13 @@ fn find_templates(sources: &[PathBuf]) -> Vec<FoundTemplate> {
                             let mut description = None;
                             let mut display_name = name.clone();
 
-                            if let Ok(contents) = fs::read_to_string(&config_path) {
-                                if let Ok(config) = toml::from_str::<TemplateConfig>(&contents) {
-                                    if let Some(n) = config.meta.name {
-                                        display_name = n;
-                                    }
-                                    description = config.meta.description;
+                            if let Ok(contents) = fs::read_to_string(&config_path)
+                                && let Ok(config) = toml::from_str::<TemplateConfig>(&contents)
+                            {
+                                if let Some(n) = config.meta.name {
+                                    display_name = n;
                                 }
+                                description = config.meta.description;
                             }
 
                             templates.push(FoundTemplate {
@@ -691,7 +695,7 @@ fn find_templates(sources: &[PathBuf]) -> Vec<FoundTemplate> {
                     }
                 }
                 Err(err) => {
-                    eros::traced!("Error walking directory: {}", err);
+                    eros::error!("Error walking directory: {}", err);
                 }
             }
         }
