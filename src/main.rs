@@ -352,7 +352,7 @@ fn render_template(
                 }
 
                 let value = input.interact()?;
-                context.insert(&question.id, &value);
+                context.insert(question.id.to_owned(), &value);
             }
             QuestionType::Bool => {
                 let default_val = question
@@ -365,7 +365,7 @@ fn render_template(
                     .with_prompt(&prompt)
                     .default(default_val)
                     .interact()?;
-                context.insert(&question.id, &value);
+                context.insert(question.id.to_owned(), &value);
             }
             QuestionType::Select => {
                 if let Some(options) = &question.options {
@@ -382,7 +382,7 @@ fn render_template(
                         .items(options)
                         .interact()?;
 
-                    context.insert(&question.id, &options[selection]);
+                    context.insert(question.id.to_owned(), &options[selection]);
                 }
             }
             QuestionType::MultiSelect => {
@@ -398,20 +398,23 @@ fn render_template(
 
                     for (idx, choice) in choices.iter().enumerate() {
                         let is_selected = selections.contains(&idx);
-                        context.insert(&choice.id, &is_selected);
+                        context.insert(choice.id.to_owned(), &is_selected);
                     }
 
                     let selected_ids: Vec<&String> =
                         selections.iter().map(|&idx| &choices[idx].id).collect();
-                    context.insert(&question.id, &selected_ids);
+                    context.insert(question.id.to_owned(), &selected_ids);
                 }
             }
         }
     }
 
     let mut tera = Tera::default();
-    tera.autoescape_on(vec![]);
-    tera.set_escape_fn(|e| e.to_string());
+    tera.autoescape_on(Vec::<&str>::new());
+    tera.set_escape_fn(|e, writer| {
+        writer.write_all(e.as_bytes());
+        Ok(())
+    });
 
     struct FileAction {
         source: PathBuf,
@@ -439,7 +442,7 @@ fn render_template(
                 .components()
                 .map(|e| {
                     let str_part = e.as_os_str().to_string_lossy();
-                    let processed_part = tera.render_str(&str_part, &context);
+                    let processed_part = tera.render_str(&str_part, &context, false);
                     processed_part.map_err(|_| str_part.to_string())
                 })
                 .try_fold(PathBuf::new(), |acc, part| Ok(acc.join(&part?)));
@@ -509,7 +512,7 @@ fn render_template(
 
         if action.is_tera {
             let tera_template = fs::read_to_string(&action.source)?;
-            let rendered = tera.render_str(&tera_template, &context)?;
+            let rendered = tera.render_str(&tera_template, &context, false)?;
             fs::write(action.destination, rendered)?;
         } else {
             fs::copy(&action.source, &action.destination)?;
