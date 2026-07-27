@@ -411,10 +411,7 @@ fn render_template(
 
     let mut tera = Tera::default();
     tera.autoescape_on(Vec::<&str>::new());
-    tera.set_escape_fn(|e, writer| {
-        writer.write_all(e.as_bytes());
-        Ok(())
-    });
+    tera.set_escape_fn(|e, writer| writer.write_all(e.as_bytes()));
 
     struct FileAction {
         source: PathBuf,
