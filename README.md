@@ -25,6 +25,17 @@ Options:
 ```
 
 
+## Conflict resolution
+
+`stamp from` and `stamp use` prompt for each conflicting file and show the merge algorithm. Set one flag to apply a strategy to all conflicts:
+
+- `--overwrite-conflicts`: replace with the incoming file.
+- `--skip-conflicts`: keep the original file.
+- `--merge-overwrite-conflicts`: merge, favoring incoming content on conflicts.
+- `--merge-skip-conflicts`: merge, favoring original content on conflicts.
+
+Markdown merges by section; JSON, TOML, and YAML merge by key. Other files and invalid structured files fall back to Patience line diff for text or Myers byte diff for binary data.
+
 ## .tera
 stamp-cli uses [tera](https://keats.github.io/tera/docs/#templates) for templating. Any file including `.tera` will be treated as a tera template when applying a template through the `use` or `from`
 sub commands. e.g. `path/file.tera.json` or `path/file.json.tera`.
