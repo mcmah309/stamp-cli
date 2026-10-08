@@ -1,0 +1,7 @@
+[meta]
+description = "An axum server project"
+
+[[questions]]
+id = "crate_name"
+type = "string"
+prompt = "Name of crate"
