@@ -89,7 +89,7 @@ Bash - A scaffold for bash scripts with pre-set options and error handling. Plus
 Axum server - A rust server template built with axum
   /home/henry/templates/axum_server
 
-Devcontainer - Devcontainer template for containers
+Devcontainer - A demplate for devcontainers
   /home/henry/templates/devcontainer
 
 Python - A Python project setup
@@ -112,9 +112,8 @@ root@c-nixos:/workspaces/stamp-cli (master)$ stamp use devcontainer example_crat
 Template rendered successfully to "example_crate"
 ```
 
-See [tests/templates/](https://github.com/mcmah309/stamp-cli/tree/master/tests/templates) for more.
-
 ## Install
+
 Cargo
 ```bash
 cargo install stamp-cli
