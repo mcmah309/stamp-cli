@@ -1,6 +1,8 @@
 use std::{
+    fs,
     path::PathBuf,
     process::{Command, Output},
+    time::{Duration, SystemTime},
 };
 use tempfile::TempDir;
 
@@ -28,6 +30,28 @@ impl Fixture {
         }
     }
 
+    fn with_files(original: &[(&str, &[u8])], incoming: &[(&str, &[u8])]) -> Self {
+        let directory = tempfile::tempdir().unwrap();
+        let case = directory.path().to_owned();
+        let source = case.join("incoming");
+        fs::create_dir_all(&source).unwrap();
+        fs::write(source.join("stamp.toml"), "").unwrap();
+        for (name, content) in incoming {
+            fs::write(source.join(name), content).unwrap();
+        }
+        let destination = case.join("destination");
+        fs::create_dir_all(&destination).unwrap();
+        for (name, content) in original {
+            fs::write(destination.join(name), content).unwrap();
+        }
+        Self {
+            directory,
+            source,
+            destination,
+            case,
+        }
+    }
+
     fn render(&self, flags: &[&str]) -> Output {
         Command::new(env!("CARGO_BIN_EXE_stamp"))
             .arg("from")
@@ -45,6 +69,104 @@ impl Fixture {
 
     fn cleanup(self) {
         common::cleanup(self.directory);
+    }
+}
+
+#[test]
+fn equivalent_files_are_not_conflicts_and_are_never_rewritten() {
+    let original: &[(&str, &[u8])] = &[
+        ("identical.txt", b"exactly the same\n"),
+        ("identical.bin", b"\xff\0\xfe\n"),
+        ("identical.json", b"{\"name\":\"stamp\"}"),
+        ("identical.yaml", b"# keep this comment\nname: stamp\n"),
+        ("identical.toml", b"name = 'stamp'\n"),
+        ("identical.md", b"# Heading\n\nBody\n"),
+        ("empty.txt", b""),
+        (
+            "whitespace.txt",
+            "\n  hello world\t\n\t\n  café\t\n\n".as_bytes(),
+        ),
+        ("unicode.txt", "\u{2003}hello\u{2003}\n".as_bytes()),
+        ("line-endings.txt", b"first\r\nsecond\r\n"),
+        ("rendered.txt", b"  hello world\n"),
+    ];
+    let incoming: &[(&str, &[u8])] = &[
+        ("identical.txt", b"exactly the same\n"),
+        ("identical.bin", b"\xff\0\xfe\n"),
+        ("identical.json", b"{\"name\":\"stamp\"}"),
+        ("identical.yaml", b"# keep this comment\nname: stamp\n"),
+        ("identical.toml", b"name = 'stamp'\n"),
+        ("identical.md", b"# Heading\n\nBody\n"),
+        ("empty.txt", b" \t\n\r\n"),
+        ("whitespace.txt", "hello world\n\ncafé".as_bytes()),
+        ("unicode.txt", b"hello"),
+        ("line-endings.txt", b"first\nsecond"),
+        ("{{ 'rendered' }}.txt.tera", b"{{ 'hello' }} world\t"),
+        ("new.txt", b"new content\n"),
+    ];
+    for flags in [
+        &[][..],
+        &["--overwrite-conflicts"][..],
+        &["--skip-conflicts"][..],
+        &["--merge-overwrite-conflicts"][..],
+        &["--merge-skip-conflicts"][..],
+    ] {
+        let fixture = Fixture::with_files(original, incoming);
+        let timestamp = SystemTime::UNIX_EPOCH + Duration::from_secs(1_000_000);
+        let modified: Vec<_> = original
+            .iter()
+            .map(|(name, _)| {
+                let path = fixture.destination.join(name);
+                fs::File::options()
+                    .write(true)
+                    .open(&path)
+                    .unwrap()
+                    .set_modified(timestamp)
+                    .unwrap();
+                fs::metadata(path).unwrap().modified().unwrap()
+            })
+            .collect();
+        let output = fixture.render(flags);
+        assert!(
+            output.status.success(),
+            "{flags:?}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        for ((name, content), modified) in original.iter().zip(modified) {
+            let path = fixture.destination.join(name);
+            assert_eq!(fs::read(&path).unwrap(), *content, "{flags:?}: {name}");
+            assert_eq!(
+                fs::metadata(path).unwrap().modified().unwrap(),
+                modified,
+                "{flags:?}: rewrote {name}"
+            );
+        }
+        assert_eq!(
+            fs::read(fixture.destination.join("new.txt")).unwrap(),
+            b"new content\n"
+        );
+        fixture.cleanup();
+    }
+}
+
+#[test]
+fn content_internal_whitespace_and_binary_changes_still_conflict() {
+    for (original, incoming) in [
+        (&b"hello world\n"[..], &b"hello  world\n"[..]),
+        (&b"first\nsecond\n"[..], &b"first\n\nsecond\n"[..]),
+        (&b"first\nsecond\n"[..], &b"second\nfirst\n"[..]),
+        (&b"hello\n"[..], &b"goodbye\n"[..]),
+        (&b"\xff\n"[..], &b" \xff\n"[..]),
+    ] {
+        let fixture = Fixture::with_files(&[("file", original)], &[("file", incoming)]);
+        let output = fixture.render(&[]);
+        assert!(!output.status.success());
+        assert!(String::from_utf8_lossy(&output.stderr).contains("interactive terminal"));
+        assert_eq!(
+            fs::read(fixture.destination.join("file")).unwrap(),
+            original
+        );
+        fixture.cleanup();
     }
 }
 

@@ -27,6 +27,8 @@ Options:
 
 ## Conflict resolution
 
+Existing files are left untouched when the incoming content is identical or differs only in leading/trailing whitespace on each line or at the file boundaries. This comparison uses rendered template content and applies with every conflict strategy. Internal whitespace and blank lines still count as changes; binary files must match byte for byte.
+
 `stamp from` and `stamp use` prompt for each conflicting file and show the merge algorithm. Set one flag to apply a strategy to all conflicts:
 
 - `--overwrite-conflicts`: replace with the incoming file.

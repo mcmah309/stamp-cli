@@ -10,7 +10,7 @@ use tera::Tera;
 
 mod conflicts;
 mod merge;
-use conflicts::{ConflictResolution, prompt_conflict};
+use conflicts::{ConflictResolution, files_equivalent, prompt_conflict};
 use merge::{MergePreference, PreparedMerge};
 
 #[derive(Parser)]
@@ -467,20 +467,31 @@ fn render_template(
     // Resolve every conflict before writing, so cancelling a prompt leaves files untouched.
     for mut action in actions {
         if action.destination.exists() {
+            if conflict_strategy == ConflictStrategy::Skip {
+                continue;
+            }
+            let contents = (|| -> eros::Result<(Vec<u8>, Vec<u8>)> {
+                let original = fs::read(&action.destination)?;
+                let incoming = if action.is_tera {
+                    let template = fs::read_to_string(&action.source)?;
+                    tera.render_str(&template, &context, false)?.into_bytes()
+                } else {
+                    fs::read(&action.source)?
+                };
+                Ok((original, incoming))
+            })();
+            if let Ok((original, incoming)) = &contents
+                && files_equivalent(original, incoming)
+            {
+                continue;
+            }
             let prepared = if matches!(
                 conflict_strategy,
                 ConflictStrategy::Interactive | ConflictStrategy::Merge(_)
             ) {
-                Some((|| -> eros::Result<PreparedMerge> {
-                    let original = fs::read(&action.destination)?;
-                    let incoming = if action.is_tera {
-                        let template = fs::read_to_string(&action.source)?;
-                        tera.render_str(&template, &context, false)?.into_bytes()
-                    } else {
-                        fs::read(&action.source)?
-                    };
-                    Ok(PreparedMerge::new(&action.destination, original, incoming))
-                })())
+                Some(contents.map(|(original, incoming)| {
+                    PreparedMerge::new(&action.destination, original, incoming)
+                }))
             } else {
                 None
             };

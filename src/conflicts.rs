@@ -10,6 +10,21 @@ pub enum ConflictResolution {
     Merge(MergePreference),
 }
 
+/// Ignore text whitespace at file and line boundaries; compare binary data exactly.
+pub fn files_equivalent(original: &[u8], incoming: &[u8]) -> bool {
+    if original == incoming {
+        return true;
+    }
+    match (std::str::from_utf8(original), std::str::from_utf8(incoming)) {
+        (Ok(original), Ok(incoming)) => original
+            .trim()
+            .lines()
+            .map(str::trim)
+            .eq(incoming.trim().lines().map(str::trim)),
+        _ => false,
+    }
+}
+
 pub fn prompt_conflict(destination: &Path, algorithm: &str) -> eros::Result<ConflictResolution> {
     if !console::Term::stderr().is_term() {
         bail!(
