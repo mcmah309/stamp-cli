@@ -8,6 +8,11 @@ use serde::{Deserialize, Serialize};
 use std::{collections::HashSet, fs, path::PathBuf, process::exit};
 use tera::Tera;
 
+mod conflicts;
+mod merge;
+use conflicts::{ConflictResolution, prompt_conflict};
+use merge::{MergePreference, PreparedMerge};
+
 #[derive(Parser)]
 #[command(name = "stamp", author = "Henry McMahon", version = "0.3.4", about =  "A cli tool for applying project templates", long_about = None)]
 struct Cli {
@@ -30,6 +35,12 @@ enum Commands {
         /// Skip any conflicting files
         #[clap(long, group = "conflict_strategy")]
         skip_conflicts: bool,
+        /// Merge conflicting files, favoring incoming content
+        #[clap(long, group = "conflict_strategy")]
+        merge_overwrite_conflicts: bool,
+        /// Merge conflicting files, favoring original content
+        #[clap(long, group = "conflict_strategy")]
+        merge_skip_conflicts: bool,
     },
     /// Render a template from a source directory to a destination directory
     From {
@@ -43,6 +54,12 @@ enum Commands {
         /// Skip any conflicting files
         #[clap(long, group = "conflict_strategy")]
         skip_conflicts: bool,
+        /// Merge conflicting files, favoring incoming content
+        #[clap(long, group = "conflict_strategy")]
+        merge_overwrite_conflicts: bool,
+        /// Merge conflicting files, favoring original content
+        #[clap(long, group = "conflict_strategy")]
+        merge_skip_conflicts: bool,
     },
     /// Register a template source directory. All templates within this directory (recursive) will be available.
     Register {
@@ -110,9 +127,10 @@ struct Registry {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum ConflictStrategy {
-    Fail,
+    Interactive,
     Overwrite,
     Skip,
+    Merge(MergePreference),
 }
 
 fn main() -> eros::Result<()> {
@@ -124,13 +142,19 @@ fn main() -> eros::Result<()> {
             destination,
             overwrite_conflicts,
             skip_conflicts,
+            merge_overwrite_conflicts,
+            merge_skip_conflicts,
         } => {
             let strategy = if overwrite_conflicts {
                 ConflictStrategy::Overwrite
             } else if skip_conflicts {
                 ConflictStrategy::Skip
+            } else if merge_overwrite_conflicts {
+                ConflictStrategy::Merge(MergePreference::Incoming)
+            } else if merge_skip_conflicts {
+                ConflictStrategy::Merge(MergePreference::Original)
             } else {
-                ConflictStrategy::Fail
+                ConflictStrategy::Interactive
             };
             render_registered_template(name, destination, strategy)
         }
@@ -139,13 +163,19 @@ fn main() -> eros::Result<()> {
             destination,
             overwrite_conflicts,
             skip_conflicts,
+            merge_overwrite_conflicts,
+            merge_skip_conflicts,
         } => {
             let strategy = if overwrite_conflicts {
                 ConflictStrategy::Overwrite
             } else if skip_conflicts {
                 ConflictStrategy::Skip
+            } else if merge_overwrite_conflicts {
+                ConflictStrategy::Merge(MergePreference::Incoming)
+            } else if merge_skip_conflicts {
+                ConflictStrategy::Merge(MergePreference::Original)
             } else {
-                ConflictStrategy::Fail
+                ConflictStrategy::Interactive
             };
             render_template(source, destination, strategy)
         }
@@ -282,52 +312,6 @@ fn render_template(
         bail!("Template configuration validation failed");
     }
 
-    if conflict_strategy == ConflictStrategy::Fail {
-        let mut early_conflicts = Vec::new();
-        for entry in walkdir::WalkDir::new(&template_path) {
-            let entry = entry?;
-            let path = entry.path();
-            if path.is_file() {
-                if path.file_name().is_some_and(|n| n == "stamp.toml") {
-                    continue;
-                }
-
-                let relative = path.strip_prefix(&template_path)?;
-                let relative_str = relative.to_string_lossy();
-
-                if relative_str.contains("{{") {
-                    // skip interpolation since these will be replaced and we don't know what the output will look like
-                    continue;
-                }
-                let mut output_path = destination_path.join(relative);
-                let file_name = path.file_name().unwrap_or_default().to_string_lossy();
-                let is_tera = file_name.ends_with(".tera") || file_name.contains(".tera.");
-                if is_tera {
-                    let new_name = output_path
-                        .file_name()
-                        .unwrap_or_default()
-                        .to_string_lossy()
-                        .replace(".tera", "");
-                    output_path.set_file_name(new_name);
-                }
-
-                if output_path.exists() {
-                    early_conflicts.push(output_path);
-                }
-            }
-        }
-
-        if !early_conflicts.is_empty() {
-            eprintln!("Conflicting files found:");
-            for conflict in early_conflicts {
-                eprintln!(" - {}", conflict.to_string_lossy());
-            }
-            bail!(
-                "Destination files already exist. Use --overwrite-conflicts or --skip-conflicts to resolve."
-            );
-        }
-    }
-
     let mut context = tera::Context::new();
 
     let total_questions = config.questions.len();
@@ -417,6 +401,7 @@ fn render_template(
         source: PathBuf,
         destination: PathBuf,
         is_tera: bool,
+        merged_contents: Option<Vec<u8>>,
     }
 
     let mut actions: Vec<FileAction> = Vec::new();
@@ -472,42 +457,78 @@ fn render_template(
                 source: path_in_template.to_path_buf(),
                 destination: final_output_path,
                 is_tera,
+                merged_contents: None,
             });
         }
     }
 
-    match conflict_strategy {
-        ConflictStrategy::Fail => {
-            let mut conflicts = Vec::new();
-            for action in &actions {
-                if action.destination.exists() {
-                    conflicts.push(action.destination.clone());
+    actions.sort_by(|a, b| a.destination.cmp(&b.destination));
+    let mut resolved_actions = Vec::new();
+    // Resolve every conflict before writing, so cancelling a prompt leaves files untouched.
+    for mut action in actions {
+        if action.destination.exists() {
+            let prepared = if matches!(
+                conflict_strategy,
+                ConflictStrategy::Interactive | ConflictStrategy::Merge(_)
+            ) {
+                Some((|| -> eros::Result<PreparedMerge> {
+                    let original = fs::read(&action.destination)?;
+                    let incoming = if action.is_tera {
+                        let template = fs::read_to_string(&action.source)?;
+                        tera.render_str(&template, &context, false)?.into_bytes()
+                    } else {
+                        fs::read(&action.source)?
+                    };
+                    Ok(PreparedMerge::new(&action.destination, original, incoming))
+                })())
+            } else {
+                None
+            };
+            let resolution = match conflict_strategy {
+                ConflictStrategy::Interactive => {
+                    let algorithm = prepared
+                        .as_ref()
+                        .and_then(|result| result.as_ref().ok())
+                        .map_or(
+                            "unavailable: cannot read or render file",
+                            PreparedMerge::algorithm,
+                        );
+                    prompt_conflict(&action.destination, algorithm)?
+                }
+                ConflictStrategy::Skip => ConflictResolution::Skip,
+                ConflictStrategy::Overwrite => ConflictResolution::Overwrite,
+                ConflictStrategy::Merge(preference) => ConflictResolution::Merge(preference),
+            };
+            match resolution {
+                ConflictResolution::Skip => continue,
+                ConflictResolution::Overwrite => {}
+                ConflictResolution::Merge(preference) => {
+                    let prepared = prepared
+                        .expect("Merge strategies prepare both files")
+                        .with_context(|| {
+                            format!(
+                                "Could not prepare merge for `{}`",
+                                action.destination.display()
+                            )
+                        })?;
+                    action.merged_contents =
+                        Some(prepared.merge(preference).with_context(|| {
+                            format!("Could not merge `{}`", action.destination.display())
+                        })?);
                 }
             }
-            if !conflicts.is_empty() {
-                eprintln!("Conflicting files found:");
-                for conflict in conflicts {
-                    eprintln!(" - {}", conflict.to_string_lossy());
-                }
-                bail!(
-                    "Destination files already exist. Use --overwrite-conflicts or --skip-conflicts to resolve."
-                );
-            }
         }
-        ConflictStrategy::Skip => {
-            actions.retain(|action| !action.destination.exists());
-        }
-        ConflictStrategy::Overwrite => {
-            // Do nothing
-        }
+        resolved_actions.push(action);
     }
 
-    for action in actions {
+    for action in resolved_actions {
         if let Some(parent) = action.destination.parent() {
             fs::create_dir_all(parent)?;
         }
 
-        if action.is_tera {
+        if let Some(merged) = action.merged_contents {
+            fs::write(action.destination, merged)?;
+        } else if action.is_tera {
             let tera_template = fs::read_to_string(&action.source)?;
             let rendered = tera.render_str(&tera_template, &context, false)?;
             fs::write(action.destination, rendered)?;

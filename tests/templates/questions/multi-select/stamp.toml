@@ -1,0 +1,39 @@
+[[questions]]
+id = "changed_features"
+type = "multi-select"
+prompt = "Change the default features"
+choices = [
+  { id = "changed_rust", prompt = "Rust support", default = true },
+  { id = "changed_shell", prompt = "Shell support", default = false },
+  { id = "changed_docs", prompt = "Documentation", default = true }
+]
+
+[[questions]]
+id = "default_features"
+type = "multi-select"
+prompt = "Accept the default features"
+choices = [
+  { id = "default_rust", prompt = "Rust support", default = true },
+  { id = "default_shell", prompt = "Shell support", default = false },
+  { id = "default_docs", prompt = "Documentation", default = true }
+]
+
+[[questions]]
+id = "no_features"
+type = "multi-select"
+prompt = "Select no features"
+choices = [
+  { id = "none_rust", prompt = "Rust support" },
+  { id = "none_shell", prompt = "Shell support" },
+  { id = "none_docs", prompt = "Documentation" }
+]
+
+[[questions]]
+id = "all_features"
+type = "multi-select"
+prompt = "Select all features"
+choices = [
+  { id = "all_rust", prompt = "Rust support", default = false },
+  { id = "all_shell", prompt = "Shell support", default = false },
+  { id = "all_docs", prompt = "Documentation", default = false }
+]

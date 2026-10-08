@@ -1,0 +1,6 @@
+[
+  { "prompt": "Change the default features", "ready": "Documentation", "answer": " \u001b[B \n", "raw": true },
+  { "prompt": "Accept the default features", "ready": "Documentation", "answer": "\n", "raw": true },
+  { "prompt": "Select no features", "ready": "Documentation", "answer": "\n", "raw": true },
+  { "prompt": "Select all features", "ready": "Documentation", "answer": " \u001b[B \u001b[B \n", "raw": true }
+]

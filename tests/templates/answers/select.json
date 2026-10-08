@@ -1,0 +1,6 @@
+[
+  { "prompt": "Accept the beta toolchain", "ready": "nightly", "answer": "\n", "raw": true },
+  { "prompt": "Change the beta toolchain", "ready": "nightly", "answer": "\u001b[B\n", "raw": true },
+  { "prompt": "Accept the first toolchain", "ready": "nightly", "answer": "\n", "raw": true },
+  { "prompt": "Accept the unmatched default fallback", "ready": "nightly", "answer": "\n", "raw": true }
+]

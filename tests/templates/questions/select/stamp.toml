@@ -1,0 +1,26 @@
+[[questions]]
+id = "default_toolchain"
+type = "select"
+prompt = "Accept the beta toolchain"
+options = ["stable", "beta", "nightly"]
+default = "beta"
+
+[[questions]]
+id = "changed_toolchain"
+type = "select"
+prompt = "Change the beta toolchain"
+options = ["stable", "beta", "nightly"]
+default = "beta"
+
+[[questions]]
+id = "implicit_toolchain"
+type = "select"
+prompt = "Accept the first toolchain"
+options = ["stable", "beta", "nightly"]
+
+[[questions]]
+id = "unmatched_toolchain"
+type = "select"
+prompt = "Accept the unmatched default fallback"
+options = ["stable", "beta", "nightly"]
+default = "missing"

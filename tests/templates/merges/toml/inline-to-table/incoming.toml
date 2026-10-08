@@ -1,0 +1,4 @@
+[service]
+new = 2
+[service.nested]
+added = 3

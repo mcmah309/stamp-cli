@@ -1,0 +1,5 @@
+service:
+  port: 8080
+  new: true
+list: [3]
+shape: false

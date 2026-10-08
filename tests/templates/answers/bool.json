@@ -1,0 +1,7 @@
+[
+  { "prompt": "Choose yes", "answer": "y", "raw": true },
+  { "prompt": "Choose no", "answer": "n", "raw": true },
+  { "prompt": "Accept the true default", "answer": "\n", "raw": true },
+  { "prompt": "Accept the false default", "answer": "\n", "raw": true },
+  { "prompt": "Accept the implicit false default", "answer": "\n", "raw": true }
+]

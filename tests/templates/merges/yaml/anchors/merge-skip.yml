@@ -1,0 +1,5 @@
+defaults: {port: 80, local: true}
+service:
+  host: localhost
+  port: 80
+  local: true

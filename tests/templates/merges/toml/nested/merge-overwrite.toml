@@ -1,0 +1,6 @@
+# Local configuration
+[service]
+port = 8080
+local = true # keep this
+settings = { local = 1, shared = 3, new = 4 }
+new = true

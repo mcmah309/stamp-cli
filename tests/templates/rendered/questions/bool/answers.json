@@ -1,0 +1,7 @@
+{
+  "explicit_yes": true,
+  "explicit_no": false,
+  "default_yes": true,
+  "default_no": false,
+  "implicit_no": false
+}

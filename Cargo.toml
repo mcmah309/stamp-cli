@@ -14,7 +14,7 @@ path = "src/main.rs"
 clap = { version = "4.5.54", features = ["derive"] }
 tera = "2"
 serde = { version = "1.0.228", features = ["derive"] }
-serde_json = "1.0.149"
+serde_json = { version = "1.0.149", features = ["preserve_order"] }
 directories = "6.0.0"
 eros = "0.8.1"
 walkdir = "2.5.0"
@@ -23,3 +23,13 @@ toml = "0.9.8"
 dialoguer = "0.12.0"
 console = "0.16.2"
 ignore = "0.4.25"
+pulldown-cmark = { version = "0.13.4", default-features = false }
+toml_edit = "0.25.16"
+serde_yaml_ng = "0.10.0"
+similar = { version = "3.2.0", default-features = false }
+
+[dev-dependencies]
+tempfile = "3.23.0"
+
+[target.'cfg(unix)'.dev-dependencies]
+expectrl = "0.9.0"

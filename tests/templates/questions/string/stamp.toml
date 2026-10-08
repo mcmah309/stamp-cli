@@ -1,0 +1,16 @@
+[[questions]]
+id = "default_name"
+type = "string"
+prompt = "Accept the default name"
+default = "default-project"
+
+[[questions]]
+id = "custom_name"
+type = "string"
+prompt = "Enter a custom name"
+default = "unused-default"
+
+[[questions]]
+id = "required_name"
+type = "string"
+prompt = "Enter a name without a default"

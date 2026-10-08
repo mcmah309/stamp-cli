@@ -1,7 +1,9 @@
 // For format details, see https://aka.ms/devcontainer.json. For config options, see the
 {
-	"name": "rust",
+	"name": "stamp-cli",
 	"image": "rust",
+	"workspaceMount": "source=${localWorkspaceFolder},target=/workspaces/${localWorkspaceFolderBasename},type=bind,bind-propagation=rslave", // Allow mounts later created on the host to show in the container
+	"workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
 	"customizations": {
 		"vscode": {
 			"settings": {
@@ -37,10 +39,11 @@
 		"--net=host",
 		"--pids-limit=16384", // Some processes like rustc can spawn more than the default process/thread limit of 2048
 		// ssh
-		"-v", "/home/henry/.ssh/:/root/.ssh",
+		"-v", "${localEnv:HOME}/.ssh/:/root/.ssh",
+		
 		
 		
 	],
-	
 	"remoteUser": "root",
+	"postStartCommand": "git pull --ff-only || true",
 }

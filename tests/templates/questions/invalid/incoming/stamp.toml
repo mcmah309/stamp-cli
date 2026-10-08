@@ -1,0 +1,49 @@
+[[questions]]
+id = "select_missing"
+type = "select"
+prompt = "Select without options"
+
+[[questions]]
+id = "select_choices"
+type = "select"
+prompt = "Select with choices instead of options"
+choices = [{ id = "feature", prompt = "Feature" }]
+
+[[questions]]
+id = "multi_missing"
+type = "multi-select"
+prompt = "Multiple choice without choices"
+
+[[questions]]
+id = "multi_options"
+type = "multi-select"
+prompt = "Multiple choice with options instead of choices"
+options = ["first"]
+
+[[questions]]
+id = "select_both"
+type = "select"
+prompt = "Select with both fields"
+options = ["first"]
+choices = [{ id = "feature", prompt = "Feature" }]
+
+[[questions]]
+id = "multi_both"
+type = "multi-select"
+prompt = "Multiple choice with both fields"
+options = ["first"]
+choices = [{ id = "feature", prompt = "Feature" }]
+
+[[questions]]
+id = "string_fields"
+type = "string"
+prompt = "String with selection fields"
+options = ["first"]
+choices = [{ id = "feature", prompt = "Feature" }]
+
+[[questions]]
+id = "bool_fields"
+type = "bool"
+prompt = "Boolean with selection fields"
+options = ["first"]
+choices = [{ id = "feature", prompt = "Feature" }]

@@ -1,0 +1,5 @@
+service:
+  port: 80
+  local: true
+list: [1, 2]
+shape: {old: 1}

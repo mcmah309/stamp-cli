@@ -1,0 +1,6 @@
+{
+  "default_toolchain": "beta",
+  "changed_toolchain": "nightly",
+  "implicit_toolchain": "stable",
+  "unmatched_toolchain": "stable"
+}

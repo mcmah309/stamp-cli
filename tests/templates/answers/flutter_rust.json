@@ -1,0 +1,4 @@
+[
+  { "prompt": "Name of the container", "answer": "fixture-flutter-container" },
+  { "prompt": "Image to use", "answer": "rust:bookworm" }
+]

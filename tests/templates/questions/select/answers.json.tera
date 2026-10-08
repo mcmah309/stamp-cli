@@ -1,0 +1,6 @@
+{
+  "default_toolchain": "{{ default_toolchain }}",
+  "changed_toolchain": "{{ changed_toolchain }}",
+  "implicit_toolchain": "{{ implicit_toolchain }}",
+  "unmatched_toolchain": "{{ unmatched_toolchain }}"
+}

@@ -1,0 +1,4 @@
+[
+  { "prompt": "Name of the container", "answer": "fixture-rust-container" },
+  { "prompt": "Image to use", "answer": "rust:latest" }
+]

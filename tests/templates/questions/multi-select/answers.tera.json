@@ -1,0 +1,10 @@
+{
+  "changed_features": [{% for id in changed_features %}"{{ id }}"{% if not loop.last %}, {% endif %}{% endfor %}],
+  "changed_flags": [{{ changed_rust }}, {{ changed_shell }}, {{ changed_docs }}],
+  "default_features": [{% for id in default_features %}"{{ id }}"{% if not loop.last %}, {% endif %}{% endfor %}],
+  "default_flags": [{{ default_rust }}, {{ default_shell }}, {{ default_docs }}],
+  "no_features": [{% for id in no_features %}"{{ id }}"{% if not loop.last %}, {% endif %}{% endfor %}],
+  "none_flags": [{{ none_rust }}, {{ none_shell }}, {{ none_docs }}],
+  "all_features": [{% for id in all_features %}"{{ id }}"{% if not loop.last %}, {% endif %}{% endfor %}],
+  "all_flags": [{{ all_rust }}, {{ all_shell }}, {{ all_docs }}]
+}

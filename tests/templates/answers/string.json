@@ -1,0 +1,5 @@
+[
+  { "prompt": "Accept the default name", "answer": "" },
+  { "prompt": "Enter a custom name", "answer": "custom-project" },
+  { "prompt": "Enter a name without a default", "answer": "required-project" }
+]

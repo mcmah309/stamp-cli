@@ -1,0 +1,7 @@
+{
+  "explicit_yes": {{ explicit_yes }},
+  "explicit_no": {{ explicit_no }},
+  "default_yes": {{ default_yes }},
+  "default_no": {{ default_no }},
+  "implicit_no": {{ implicit_no }}
+}

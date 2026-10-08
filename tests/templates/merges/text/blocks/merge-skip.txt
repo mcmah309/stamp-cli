@@ -1,0 +1,6 @@
+Header
+Original title
+Anchor
+Local notes
+End
+New notes

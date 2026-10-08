@@ -1,0 +1,10 @@
+{
+  "changed_features": ["changed_shell", "changed_docs"],
+  "changed_flags": [false, true, true],
+  "default_features": ["default_rust", "default_docs"],
+  "default_flags": [true, false, true],
+  "no_features": [],
+  "none_flags": [false, false, false],
+  "all_features": ["all_rust", "all_shell", "all_docs"],
+  "all_flags": [true, true, true]
+}

@@ -1,0 +1,28 @@
+[[questions]]
+id = "explicit_yes"
+type = "bool"
+prompt = "Choose yes"
+default = false
+
+[[questions]]
+id = "explicit_no"
+type = "bool"
+prompt = "Choose no"
+default = true
+
+[[questions]]
+id = "default_yes"
+type = "bool"
+prompt = "Accept the true default"
+default = true
+
+[[questions]]
+id = "default_no"
+type = "bool"
+prompt = "Accept the false default"
+default = false
+
+[[questions]]
+id = "implicit_no"
+type = "bool"
+prompt = "Accept the implicit false default"
