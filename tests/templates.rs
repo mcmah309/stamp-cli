@@ -1,6 +1,6 @@
 #![cfg(unix)]
 
-use expectrl::{Eof, Expect, Session, process::unix::WaitStatus};
+use expectrl::{Eof, Expect, Regex, Session, process::unix::WaitStatus};
 use serde::Deserialize;
 use std::{fs, process::Command, time::Duration};
 
@@ -52,9 +52,12 @@ fn assert_template_renders(source: &str, answers: &str) {
         session.set_expect_timeout(Some(Duration::from_secs(10)));
         for answer in &answers {
             session.expect(answer.prompt.as_str()).unwrap();
-            session
-                .expect(answer.ready.as_deref().unwrap_or("› "))
-                .unwrap();
+            if let Some(ready) = &answer.ready {
+                session.expect(ready.as_str()).unwrap();
+            } else {
+                // ColorfulTheme can insert an ANSI reset between the suffix and space.
+                session.expect(Regex(r"›(?:\x1b\[[0-9;]*m)* ")).unwrap();
+            }
             if answer.raw {
                 session.send(&answer.answer).unwrap();
             } else {
