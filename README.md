@@ -9,21 +9,21 @@ stamp-cli is a command-line tool for managing and rendering project templates. I
 ```console
 A cli tool for applying project templates
 
-Usage: stamp <COMMAND>
+Usage: stamp [OPTIONS] <COMMAND>
 
 Commands:
   use       Render a template in the registry to a destination directory
   from      Render a template from a source directory to a destination directory
-  register  Register a template source directory. All templates within this directory (recursive) will be available.
+  register  Register a template source directory. All templates within this directory (recursive) will be available
   remove    Remove a registered source directory
   list      List registered templates
   help      Print this message or the help of the given subcommand(s)
 
 Options:
+      --debug    Show raw error details, context, and a backtrace
   -h, --help     Print help
   -V, --version  Print version
 ```
-
 
 ## Conflict resolution
 

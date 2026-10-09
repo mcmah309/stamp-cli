@@ -1,6 +1,7 @@
+use crate::errors::UserError;
 use crate::merge::MergePreference;
 use dialoguer::{Select, theme::ColorfulTheme};
-use eros::bail;
+use eros::{Context, bail};
 use std::path::Path;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -27,12 +28,12 @@ pub fn files_equivalent(original: &[u8], incoming: &[u8]) -> bool {
 
 pub fn prompt_conflict(destination: &Path, algorithm: &str) -> eros::Result<ConflictResolution> {
     if !console::Term::stderr().is_term() {
-        bail!(
+        bail!(UserError::new(format!(
             "Destination `{}` already exists. Conflict resolution requires an interactive terminal. \
              Use --overwrite-conflicts, --skip-conflicts, --merge-overwrite-conflicts, \
              or --merge-skip-conflicts to resolve conflicts non-interactively.",
             destination.display()
-        );
+        )));
     }
 
     let options = [
@@ -61,10 +62,18 @@ pub fn prompt_conflict(destination: &Path, algorithm: &str) -> eros::Result<Conf
         ))
         .items(&labels)
         .default(1)
-        .interact_opt()?;
+        .interact_opt()
+        .with_user_context(|| {
+            format!(
+                "Could not read a conflict resolution for `{}`.",
+                destination.display()
+            )
+        })?;
 
     match selection {
         Some(index) => Ok(options[index].1),
-        None => bail!("Conflict resolution cancelled; no files were written."),
+        None => bail!(UserError::new(
+            "Conflict resolution cancelled; no files were written."
+        )),
     }
 }

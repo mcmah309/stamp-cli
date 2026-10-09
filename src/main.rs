@@ -9,13 +9,18 @@ use std::{collections::HashSet, fs, path::PathBuf, process::exit};
 use tera::Tera;
 
 mod conflicts;
+mod errors;
 mod merge;
 use conflicts::{ConflictResolution, files_equivalent, prompt_conflict};
+use errors::{UserError, user_message};
 use merge::{MergePreference, PreparedMerge};
 
 #[derive(Parser)]
 #[command(name = "stamp", author = "Henry McMahon", version = "0.3.4", about =  "A cli tool for applying project templates", long_about = None)]
 struct Cli {
+    /// Show raw error details, context, and a backtrace
+    #[arg(long, global = true)]
+    debug: bool,
     #[command(subcommand)]
     command: Commands,
 }
@@ -133,8 +138,15 @@ enum ConflictStrategy {
     Merge(MergePreference),
 }
 
-fn main() -> eros::Result<()> {
+fn main() {
     let cli = Cli::parse();
+
+    if cli.debug {
+        // SAFETY: Startup is single-threaded; no worker threads have been started.
+        // Enable capture before any application errors are created, even if the
+        // caller disabled backtraces through the environment.
+        unsafe { std::env::set_var("RUST_LIB_BACKTRACE", "1") };
+    }
 
     let result = match cli.command {
         Commands::Use {
@@ -185,12 +197,16 @@ fn main() -> eros::Result<()> {
     };
 
     if let Err(error) = result {
-        eprintln!("Oops something went wrong.\n");
-        eprintln!("{:?}", error);
+        eprintln!("Error: {}", user_message(&error));
+        if cli.debug {
+            eprintln!("\nDebug details:\n{error:?}");
+        } else {
+            eprintln!(
+                "\nRun again with --debug to show raw error details, context, and a backtrace."
+            );
+        }
         exit(1);
     };
-
-    Ok(())
 }
 
 fn render_registered_template(
@@ -221,13 +237,20 @@ fn render_registered_template(
     matches.dedup_by_key(|t| &t.path);
 
     if matches.is_empty() {
-        bail!("Template '{}' not found in registry", template_name)
+        bail!(UserError::new(format!(
+            "Template '{}' not found in registry. Run `stamp list` to see available templates.",
+            template_name
+        )))
     } else if matches.len() > 1 {
-        eprintln!("Ambiguous template match for '{}':", template_name);
-        for m in matches {
-            eprintln!(" - {} ({})", m.name, m.path.to_string_lossy());
-        }
-        bail!("Please provide a more specific path or name.");
+        let candidates = matches
+            .iter()
+            .map(|m| format!(" - {} ({})", m.name, m.path.display()))
+            .collect::<Vec<_>>()
+            .join("\n");
+        bail!(UserError::new(format!(
+            "Ambiguous template match for '{}':\n{}\nPlease provide a more specific path or name.",
+            template_name, candidates
+        )));
     }
 
     let selected = matches[0];
@@ -240,9 +263,13 @@ fn render_template(
     conflict_strategy: ConflictStrategy,
 ) -> eros::Result<()> {
     let config_path = template_path.join("stamp.toml");
-    let config_contents = fs::read_to_string(&config_path)
-        .with_context(|| format!("could not read `{}`", config_path.to_string_lossy()))?;
-    let config: TemplateConfig = toml::from_str(&config_contents).with_context(|| {
+    let config_contents = fs::read_to_string(&config_path).with_user_context(|| {
+        format!(
+            "Could not read `{}`. Check that the template exists and is readable.",
+            config_path.display()
+        )
+    })?;
+    let config: TemplateConfig = toml::from_str(&config_contents).with_user_context(|| {
         format!(
             "Template config from `{}` is not valid",
             config_path.to_string_lossy()
@@ -305,11 +332,10 @@ fn render_template(
     }
 
     if !validation_errors.is_empty() {
-        eprintln!("Invalid template configuration:");
-        for error in validation_errors {
-            eprintln!(" - {}", error);
-        }
-        bail!("Template configuration validation failed");
+        bail!(UserError::new(format!(
+            "Invalid template configuration:\n - {}\nTemplate configuration validation failed",
+            validation_errors.join("\n - ")
+        )));
     }
 
     let mut context = tera::Context::new();
@@ -335,7 +361,12 @@ fn render_template(
                     input = input.default(default);
                 }
 
-                let value = input.interact()?;
+                let value = input.interact().with_user_context(|| {
+                    format!(
+                        "Could not read an answer for '{}'. Use an interactive terminal.",
+                        question.prompt
+                    )
+                })?;
                 context.insert(question.id.to_owned(), &value);
             }
             QuestionType::Bool => {
@@ -348,7 +379,13 @@ fn render_template(
                 let value = Confirm::with_theme(&theme)
                     .with_prompt(&prompt)
                     .default(default_val)
-                    .interact()?;
+                    .interact()
+                    .with_user_context(|| {
+                        format!(
+                            "Could not read an answer for '{}'. Use an interactive terminal.",
+                            question.prompt
+                        )
+                    })?;
                 context.insert(question.id.to_owned(), &value);
             }
             QuestionType::Select => {
@@ -364,7 +401,13 @@ fn render_template(
                         .with_prompt(&prompt)
                         .default(default_idx)
                         .items(options)
-                        .interact()?;
+                        .interact()
+                        .with_user_context(|| {
+                            format!(
+                                "Could not read an answer for '{}'. Use an interactive terminal.",
+                                question.prompt
+                            )
+                        })?;
 
                     context.insert(question.id.to_owned(), &options[selection]);
                 }
@@ -378,7 +421,13 @@ fn render_template(
                         .with_prompt(&prompt)
                         .items(&items)
                         .defaults(&defaults)
-                        .interact()?;
+                        .interact()
+                        .with_user_context(|| {
+                            format!(
+                                "Could not read an answer for '{}'. Use an interactive terminal.",
+                                question.prompt
+                            )
+                        })?;
 
                     for (idx, choice) in choices.iter().enumerate() {
                         let is_selected = selections.contains(&idx);
@@ -407,7 +456,12 @@ fn render_template(
     let mut actions: Vec<FileAction> = Vec::new();
 
     for entry in walkdir::WalkDir::new(&template_path) {
-        let entry = entry?;
+        let entry = entry.with_user_context(|| {
+            format!(
+                "Could not read template directory `{}`.",
+                template_path.display()
+            )
+        })?;
         let path_in_template = entry.path();
 
         if path_in_template.is_file() {
@@ -420,22 +474,21 @@ fn render_template(
 
             let relative_path_in_template = path_in_template.strip_prefix(&template_path)?;
             let output_path_original = destination_path.join(relative_path_in_template);
-            let output_path: Result<PathBuf, String> = output_path_original
+            let output_path: eros::Result<PathBuf> = output_path_original
                 .components()
                 .map(|e| {
                     let str_part = e.as_os_str().to_string_lossy();
-                    let processed_part = tera.render_str(&str_part, &context, false);
-                    processed_part.map_err(|_| str_part.to_string())
+                    tera.render_str(&str_part, &context, false)
+                        .with_user_context(|| {
+                            format!(
+                                "Failed to render path component `{}` of `{}`",
+                                str_part,
+                                output_path_original.display()
+                            )
+                        })
                 })
                 .try_fold(PathBuf::new(), |acc, part| Ok(acc.join(&part?)));
-            let output_path = output_path.map_err(|component_failed| {
-                let output_path = output_path_original.to_string_lossy();
-                eros::error!(
-                    "Failed to render path component `{}` of `{}`",
-                    component_failed,
-                    output_path
-                )
-            })?;
+            let output_path = output_path?;
 
             let file_name = path_in_template
                 .file_name()
@@ -516,14 +569,14 @@ fn render_template(
                 ConflictResolution::Merge(preference) => {
                     let prepared = prepared
                         .expect("Merge strategies prepare both files")
-                        .with_context(|| {
+                        .with_user_context(|| {
                             format!(
                                 "Could not prepare merge for `{}`",
                                 action.destination.display()
                             )
                         })?;
                     action.merged_contents =
-                        Some(prepared.merge(preference).with_context(|| {
+                        Some(prepared.merge(preference).with_user_context(|| {
                             format!("Could not merge `{}`", action.destination.display())
                         })?);
                 }
@@ -534,17 +587,39 @@ fn render_template(
 
     for action in resolved_actions {
         if let Some(parent) = action.destination.parent() {
-            fs::create_dir_all(parent)?;
+            fs::create_dir_all(parent).with_user_context(|| {
+                format!(
+                    "Could not create destination directory `{}`.",
+                    parent.display()
+                )
+            })?;
         }
 
         if let Some(merged) = action.merged_contents {
-            fs::write(action.destination, merged)?;
+            fs::write(&action.destination, merged).with_user_context(|| {
+                format!("Could not write `{}`.", action.destination.display())
+            })?;
         } else if action.is_tera {
-            let tera_template = fs::read_to_string(&action.source)?;
-            let rendered = tera.render_str(&tera_template, &context, false)?;
-            fs::write(action.destination, rendered)?;
+            let tera_template = fs::read_to_string(&action.source).with_user_context(|| {
+                format!(
+                    "Could not read template file `{}`.",
+                    action.source.display()
+                )
+            })?;
+            let rendered = tera.render_str(&tera_template, &context, false).with_user_context(|| {
+                format!("Could not render template file `{}`. Check its template syntax and variables.", action.source.display())
+            })?;
+            fs::write(&action.destination, rendered).with_user_context(|| {
+                format!("Could not write `{}`.", action.destination.display())
+            })?;
         } else {
-            fs::copy(&action.source, &action.destination)?;
+            fs::copy(&action.source, &action.destination).with_user_context(|| {
+                format!(
+                    "Could not copy `{}` to `{}`.",
+                    action.source.display(),
+                    action.destination.display()
+                )
+            })?;
         }
     }
 
@@ -555,10 +630,10 @@ fn render_template(
 fn register_source(path: PathBuf) -> eros::Result<()> {
     let mut registry = load_registry()?;
     let canon_path = fs::canonicalize(&path)
-        .with_context(|| format!("Could not find path `{}`", path.to_string_lossy()))?;
+        .with_user_context(|| format!("Could not find path `{}`", path.to_string_lossy()))?;
 
     if !canon_path.is_dir() {
-        bail!("Path must be a directory");
+        bail!(UserError::new("Path must be a directory"));
     }
 
     if registry.sources.contains(&canon_path) {
@@ -611,12 +686,16 @@ fn list_templates() -> eros::Result<()> {
 fn load_registry() -> eros::Result<Registry> {
     let registry_path = get_registry_path()?;
     if let Ok(contents) = fs::read_to_string(&registry_path) {
-        let registry: Registry = serde_json::from_str(&contents).with_context(|| {
-            format!(
-                "Registry from `{}` is not valid",
-                registry_path.to_string_lossy()
-            )
-        })?;
+        let registry: Registry = serde_json::from_str(&contents)
+            .with_context(|| {
+                format!(
+                    "Registry from `{}` is not valid",
+                    registry_path.to_string_lossy()
+                )
+            })
+            .user_context(
+                "The template registry is invalid. Repair or remove the registry file.",
+            )?;
         Ok(registry)
     } else {
         Ok(Registry::default())
@@ -626,24 +705,33 @@ fn load_registry() -> eros::Result<Registry> {
 fn get_registry_path() -> eros::Result<PathBuf> {
     if let Some(proj_dirs) = ProjectDirs::from("com", "mcmah309", "stamp") {
         let config_dir = proj_dirs.config_dir();
-        fs::create_dir_all(config_dir)?;
+        fs::create_dir_all(config_dir)
+            .user_context("Could not create the configuration directory. Check its permissions.")?;
         Ok(config_dir.join("template_registry.json"))
     } else {
-        bail!("Could not determine configuration directory")
+        bail!(UserError::new(
+            "Could not determine configuration directory"
+        ))
     }
 }
 
 fn save_registry(registry: &Registry) -> eros::Result<()> {
     let registry_path = get_registry_path()?;
-    let contents = serde_json::to_string_pretty(registry)?;
-    fs::write(registry_path, contents)?;
+    let contents = serde_json::to_string_pretty(registry)
+        .user_context("Could not save the template registry.")?;
+    fs::write(&registry_path, contents)
+        .with_context(|| format!("Could not write registry `{}`", registry_path.display()))
+        .user_context(
+            "Could not save the template registry. Check configuration directory permissions.",
+        )?;
     Ok(())
 }
 
 fn remove_source(path: PathBuf) -> eros::Result<()> {
     let mut registry = load_registry()?;
     let canon_path = if path.exists() {
-        fs::canonicalize(&path)?
+        fs::canonicalize(&path)
+            .with_user_context(|| format!("Could not find path `{}`", path.display()))?
     } else {
         path
     };
@@ -656,10 +744,10 @@ fn remove_source(path: PathBuf) -> eros::Result<()> {
             canon_path.to_string_lossy()
         );
     } else {
-        bail!(
+        bail!(UserError::new(format!(
             "Source `{}` not found in registry",
             canon_path.to_string_lossy()
-        );
+        )));
     }
 
     Ok(())
