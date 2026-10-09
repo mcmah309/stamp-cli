@@ -10,6 +10,18 @@ repository = "https://github.com/mcmah309/stamp-cli"
 name = "stamp"
 path = "src/main.rs"
 
+[package.metadata.deb]
+maintainer = "mcmah309 <dillonmcmahon79@gmail.com>"
+license-file = ["LICENSE", "0"]
+extended-description = "Manage, register, and render project templates with interactive questions and intelligent merging of existing files."
+depends = "$auto"
+section = "devel"
+priority = "optional"
+assets = [
+    ["target/release/stamp", "usr/bin/stamp", "755"],
+    ["README.md", "usr/share/doc/stamp-cli/README.md", "644"],
+]
+
 [dependencies]
 clap = { version = "4.5.54", features = ["derive"] }
 tera = "2"

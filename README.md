@@ -114,7 +114,19 @@ Template rendered successfully to "example_crate"
 
 ## Install
 
-Cargo
+### Debian / Ubuntu
+
+Download the `.deb` matching your architecture (`dpkg --print-architecture`)
+from [GitHub Releases](https://github.com/mcmah309/stamp-cli/releases), then run
+these commands from the download directory:
+
+```bash
+sudo apt install ./stamp-cli_*.deb
+stamp --version
+```
+
+### Cargo
+
 ```bash
 cargo install stamp-cli
 ```
