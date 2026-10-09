@@ -116,13 +116,23 @@ Template rendered successfully to "example_crate"
 
 ### Debian / Ubuntu
 
-Download the `.deb` matching your architecture (`dpkg --print-architecture`)
-from [GitHub Releases](https://github.com/mcmah309/stamp-cli/releases), then run
-these commands from the download directory:
+Copy and paste the following to install the latest GitHub release. It automatically
+selects the `.deb` for your architecture (`amd64` or `arm64`):
 
 ```bash
-sudo apt install ./stamp-cli_*.deb
+(
+set -e
+sudo apt-get update
+sudo apt-get install -y curl
+release_url=$(curl -fsSL -o /dev/null -w '%{url_effective}' https://github.com/mcmah309/stamp-cli/releases/latest)
+tag=${release_url##*/}
+deb="stamp-cli_${tag#v}-1_$(dpkg --print-architecture).deb"
+tmp_dir=$(mktemp -d)
+trap 'rm -rf "$tmp_dir"' EXIT
+curl -fL "https://github.com/mcmah309/stamp-cli/releases/download/$tag/$deb" -o "$tmp_dir/$deb"
+sudo apt-get install -y "$tmp_dir/$deb"
 stamp --version
+)
 ```
 
 ### Cargo
