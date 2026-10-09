@@ -634,7 +634,7 @@ checksum = "4f66ca1f7aca2474dc10c942eb22feffc897735f54cd1db90138c2fddb490987"
 
 [[package]]
 name = "stamp-cli"
-version = "0.3.5"
+version = "0.3.6"
 dependencies = [
  "clap",
  "console",

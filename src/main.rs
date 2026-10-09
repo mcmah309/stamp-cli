@@ -16,7 +16,7 @@ use errors::{UserError, user_message};
 use merge::{MergePreference, PreparedMerge};
 
 #[derive(Parser)]
-#[command(name = "stamp", author = "Henry McMahon", version = "0.3.4", about =  "A cli tool for applying project templates", long_about = None)]
+#[command(name = "stamp", author = "Henry McMahon", version = "0.3.6", about =  "A cli tool for applying templates with intelligent merging", long_about = None)]
 struct Cli {
     /// Show raw error details, context, and a backtrace
     #[arg(long, global = true)]
